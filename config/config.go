@@ -75,6 +75,8 @@ func NewDefaultCluster() *Cluster {
 			AWSCliTag:          "master",
 			ContainerRuntime:   "docker",
 			Subnets:            []*Subnet{},
+			WorkerSubnets:      []*Subnet{},
+			EIPAllocationIDs:   []string{},
 			MapPublicIPs:       true,
 			Experimental:       experimental,
 		},
@@ -85,6 +87,7 @@ func NewDefaultCluster() *Cluster {
 			WorkerCount:            1,
 			WorkerCreateTimeout:    "PT15M",
 			WorkerInstanceType:     "m3.medium",
+			WorkerPrivateSubnet:    false,
 			WorkerRootVolumeType:   "gp2",
 			WorkerRootVolumeIOPS:   0,
 			WorkerRootVolumeSize:   30,
@@ -226,6 +229,8 @@ type DeploymentSettings struct {
 	KMSKeyARN           string            `yaml:"kmsKeyArn,omitempty"`
 	StackTags           map[string]string `yaml:"stackTags,omitempty"`
 	Subnets             []*Subnet         `yaml:"subnets,omitempty"`
+	WorkerSubnets       []*Subnet         `yaml:"workerSubnets,omitempty"`
+	EIPAllocationIDs    []string          `yaml:"eipAllocationIDs,omitempty"`
 	MapPublicIPs        bool              `yaml:"mapPublicIPs,omitempty"`
 	ElasticFileSystemID string            `yaml:"elasticFileSystemId,omitempty"`
 	SSHAuthorizedKeys   []string          `yaml:"sshAuthorizedKeys,omitempty"`
@@ -238,6 +243,7 @@ type WorkerSettings struct {
 	WorkerCount            int      `yaml:"workerCount,omitempty"`
 	WorkerCreateTimeout    string   `yaml:"workerCreateTimeout,omitempty"`
 	WorkerInstanceType     string   `yaml:"workerInstanceType,omitempty"`
+	WorkerPrivateSubnet    bool     `yaml:"workerPrivateSubnet,omitempty"`
 	WorkerRootVolumeType   string   `yaml:"workerRootVolumeType,omitempty"`
 	WorkerRootVolumeIOPS   int      `yaml:"workerRootVolumeIOPS,omitempty"`
 	WorkerRootVolumeSize   int      `yaml:"workerRootVolumeSize,omitempty"`

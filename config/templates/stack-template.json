@@ -12,9 +12,16 @@
     "AutoScaleWorker": {
       "Properties": {
         "AvailabilityZones": [
+          {{if $.WorkerPrivateSubnet}}
+          {{range $index, $workerSubnet := .WorkerSubnets}}
+          {{if gt $index 0}},{{end}}
+          "{{$workerSubnet.AvailabilityZone}}"
+          {{end}}
+          {{else}}
           {{range $index, $subnet := .Subnets}}
           {{if gt $index 0}},{{end}}
           "{{$subnet.AvailabilityZone}}"
+          {{end}}
           {{end}}
         ],
         "HealthCheckGracePeriod": 600,
@@ -50,12 +57,23 @@
         ],
         {{end}}
         "VPCZoneIdentifier": [
+          {{if $.WorkerPrivateSubnet}}
+          {{range $index, $workerSubnet := .WorkerSubnets}}
+          {{with $workerSubnetLogicalName := printf "WorkerSubnet%d" $index}}
+          {{if gt $index 0}},{{end}}
+          {
+            "Ref": "{{$workerSubnetLogicalName}}"
+          }
+          {{end}}
+          {{end}}
+          {{else}}
           {{range $index, $subnet := .Subnets}}
           {{with $subnetLogicalName := printf "Subnet%d" $index}}
           {{if gt $index 0}},{{end}}
           {
             "Ref": "{{$subnetLogicalName}}"
           }
+          {{end}}
           {{end}}
           {{end}}
         ]
@@ -1034,6 +1052,32 @@
     {{end}}
     {{end}}
     {{end}}
+    {{if $.WorkerPrivateSubnet}}
+    {{range $index, $workerSubnet := .WorkerSubnets}}
+    {{with $workerSubnetLogicalName := printf "WorkerSubnet%d" $index}}
+    ,
+    "{{$workerSubnetLogicalName}}": {
+      "Properties": {
+        "AvailabilityZone": "{{$workerSubnet.AvailabilityZone}}",
+        "CidrBlock": "{{$workerSubnet.InstanceCIDR}}",
+        "MapPublicIpOnLaunch": {{not $.WorkerPrivateSubnet}},
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "{{$.ClusterName}}-{{$workerSubnetLogicalName}}"
+          },
+          {
+            "Key": "KubernetesCluster",
+            "Value": "{{$.ClusterName}}"
+          }
+        ],
+        "VpcId": {{$.VPCRef}}
+      },
+      "Type": "AWS::EC2::Subnet"
+    }
+    {{end}}
+    {{end}}
+    {{end}}
     {{if not .VPCID}}
     ,
     "{{.VPCLogicalName}}": {
@@ -1096,6 +1140,67 @@
       },
       "Type": "AWS::EC2::InternetGateway"
     },
+    {{if .WorkerPrivateSubnet}}
+    {{range $index, $subnet := .Subnets}}
+    {{with $subnetLogicalName := printf "Subnet%d" $index}}
+    "WorkerSubnet{{$index}}RouteTable": {
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "{{$.ClusterName}}-route-table"
+          },
+          {
+            "Key": "KubernetesCluster",
+            "Value": "{{$.ClusterName}}"
+          }
+        ],
+        "VpcId": {{$.VPCRef}}
+      },
+      "Type": "AWS::EC2::RouteTable"
+    },
+    "WorkerSubnet{{$index}}RouteToNatGateway": {
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "{{$subnetLogicalName}}NatGateway"
+        },
+        "RouteTableId": { "Ref" : "WorkerSubnet{{$index}}RouteTable" }
+      },
+      "Type": "AWS::EC2::Route"
+    },
+    "WorkerSubnet{{$index}}RouteTableAssociation": {
+      "Properties": {
+        "RouteTableId": { "Ref" : "WorkerSubnet{{$index}}RouteTable"},
+        "SubnetId": {
+          "Ref": "WorkerSubnet{{$index}}"
+        }
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    },
+    {{if not $.EIPAllocationIDs}}
+    "{{$subnetLogicalName}}EIPNatGateway": {
+      "Properties": {
+        "Domain": "vpc"
+      },
+      "Type": "AWS::EC2::EIP"
+    },
+    {{end}}
+    "{{$subnetLogicalName}}NatGateway": {
+      "Properties": {
+        "AllocationId":
+          {{if not $.EIPAllocationIDs}}
+          {"Fn::GetAtt": ["{{$subnetLogicalName}}EIPNatGateway", "AllocationId"]},
+          {{else}}
+          "{{index $.EIPAllocationIDs $index}}",
+          {{end}}
+        "SubnetId": { "Ref": "{{$subnetLogicalName}}" }
+      },
+      "Type": "AWS::EC2::NatGateway"
+    },
+    {{end}}
+    {{end}}
+    {{end}}
     "VPCGatewayAttachment": {
       "Properties": {
         "InternetGatewayId": {

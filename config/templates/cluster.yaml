@@ -112,6 +112,9 @@ worker:
 #   - sg-1234abcd
 #   - sg-5678efab
 
+# Place workers on a private subnet with NAT gateway. Use the below `workerSubnets` section to define network CIDRs.
+# workerPrivateSubnet: false
+
 ## Etcd Cluster config
 ## WARNING: Any changes to etcd parameters after the cluster is first created will not be applied
 ## during a cluster upgrade, due to concerns over data loss.
@@ -171,6 +174,15 @@ worker:
 #     instanceCIDR: "10.0.0.0/24"
 #   - availabilityZone: us-west-1b
 #     instanceCIDR: "10.0.1.0/24"
+# workerSubnets:
+#   - availabilityZone: us-west-1a
+#     instanceCIDR: "10.0.0.0/24"
+#   - availabilityZone: us-west-1b
+#     instanceCIDR: "10.0.1.0/24"
+
+# Pre-allocated EIP for NAT Gateways. Used with workerPrivateSubnets.
+# eipAllocationIDs:
+#   - "eipalloc-abcdef12"
 
 # CIDR for all service IP addresses
 # serviceCIDR: "10.3.0.0/24"
