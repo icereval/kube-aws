@@ -111,9 +111,16 @@
       "Type": "AWS::AutoScaling::AutoScalingGroup",
       "Properties": {
         "AvailabilityZones": [
+          {{if $.ControllerPrivateSubnet}}
+          {{range $index, $controllerSubnet := .ControllerSubnets}}
+          {{if gt $index 0}},{{end}}
+          "{{$controllerSubnet.AvailabilityZone}}"
+          {{end}}
+          {{else}}
           {{range $index, $subnet := .Subnets}}
           {{if gt $index 0}},{{end}}
           "{{$subnet.AvailabilityZone}}"
+          {{end}}
           {{end}}
         ],
         "HealthCheckGracePeriod": 600,
@@ -141,12 +148,23 @@
           }
         ],
         "VPCZoneIdentifier": [
+          {{if $.ControllerPrivateSubnet}}
+          {{range $index, $controllerSubnet := .ControllerSubnets}}
+          {{with $controllerSubnetLogicalName := printf "ControllerSubnet%d" $index}}
+          {{if gt $index 0}},{{end}}
+          {
+            "Ref": "{{$controllerSubnetLogicalName}}"
+          }
+          {{end}}
+          {{end}}
+          {{else}}
           {{range $index, $subnet := .Subnets}}
           {{with $subnetLogicalName := printf "Subnet%d" $index}}
           {{if gt $index 0}},{{end}}
           {
             "Ref": "{{$subnetLogicalName}}"
           }
+          {{end}}
           {{end}}
           {{end}}
         ],
@@ -1078,6 +1096,32 @@
     {{end}}
     {{end}}
     {{end}}
+    {{if $.ControllerPrivateSubnet}}
+    {{range $index, $controllerSubnet := .ControllerSubnets}}
+    {{with $controllerSubnetLogicalName := printf "ControllerSubnet%d" $index}}
+    ,
+    "{{$controllerSubnetLogicalName}}": {
+      "Properties": {
+        "AvailabilityZone": "{{$controllerSubnet.AvailabilityZone}}",
+        "CidrBlock": "{{$controllerSubnet.InstanceCIDR}}",
+        "MapPublicIpOnLaunch": {{not $.ControllerPrivateSubnet}},
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "{{$.ClusterName}}-{{$controllerSubnetLogicalName}}"
+          },
+          {
+            "Key": "KubernetesCluster",
+            "Value": "{{$.ClusterName}}"
+          }
+        ],
+        "VpcId": {{$.VPCRef}}
+      },
+      "Type": "AWS::EC2::Subnet"
+    }
+    {{end}}
+    {{end}}
+    {{end}}
     {{if not .VPCID}}
     ,
     "{{.VPCLogicalName}}": {
@@ -1140,6 +1184,48 @@
       },
       "Type": "AWS::EC2::InternetGateway"
     },
+    {{if .ControllerPrivateSubnet}}
+    {{range $index, $subnet := .Subnets}}
+    {{with $subnetLogicalName := printf "Subnet%d" $index}}
+    "ControllerSubnet{{$index}}RouteTable": {
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "{{$.ClusterName}}-route-table"
+          },
+          {
+            "Key": "KubernetesCluster",
+            "Value": "{{$.ClusterName}}"
+          }
+        ],
+        "VpcId": {{$.VPCRef}}
+      },
+      "Type": "AWS::EC2::RouteTable"
+    },
+    "ControllerSubnet{{$index}}RouteToNatGateway": {
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "{{$subnetLogicalName}}NatGateway"
+        },
+        "RouteTableId": { "Ref" : "ControllerSubnet{{$index}}RouteTable" }
+      },
+      "Type": "AWS::EC2::Route"
+    },
+    "ControllerSubnet{{$index}}RouteTableAssociation": {
+      "Properties": {
+        "RouteTableId": { "Ref" : "ControllerSubnet{{$index}}RouteTable"},
+        "SubnetId": {
+          "Ref": "ControllerSubnet{{$index}}"
+        }
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    },
+    {{end}}
+    {{end}}
+    {{end}}
+
     {{if .WorkerPrivateSubnet}}
     {{range $index, $subnet := .Subnets}}
     {{with $subnetLogicalName := printf "Subnet%d" $index}}

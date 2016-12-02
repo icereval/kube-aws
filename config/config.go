@@ -75,6 +75,7 @@ func NewDefaultCluster() *Cluster {
 			AWSCliTag:          "master",
 			ContainerRuntime:   "docker",
 			Subnets:            []*Subnet{},
+			ControllerSubnets:  []*Subnet{},
 			WorkerSubnets:      []*Subnet{},
 			EIPAllocationIDs:   []string{},
 			MapPublicIPs:       true,
@@ -98,6 +99,7 @@ func NewDefaultCluster() *Cluster {
 			ControllerCount:          1,
 			ControllerCreateTimeout:  "PT15M",
 			ControllerInstanceType:   "m3.medium",
+			ControllerPrivateSubnet:  false,
 			ControllerRootVolumeType: "gp2",
 			ControllerRootVolumeIOPS: 0,
 			ControllerRootVolumeSize: 30,
@@ -229,6 +231,7 @@ type DeploymentSettings struct {
 	KMSKeyARN           string            `yaml:"kmsKeyArn,omitempty"`
 	StackTags           map[string]string `yaml:"stackTags,omitempty"`
 	Subnets             []*Subnet         `yaml:"subnets,omitempty"`
+	ControllerSubnets   []*Subnet         `yaml:"controllerSubnets,omitempty"`
 	WorkerSubnets       []*Subnet         `yaml:"workerSubnets,omitempty"`
 	EIPAllocationIDs    []string          `yaml:"eipAllocationIDs,omitempty"`
 	MapPublicIPs        bool              `yaml:"mapPublicIPs,omitempty"`
@@ -258,6 +261,7 @@ type ControllerSettings struct {
 	ControllerCount          int    `yaml:"controllerCount,omitempty"`
 	ControllerCreateTimeout  string `yaml:"controllerCreateTimeout,omitempty"`
 	ControllerInstanceType   string `yaml:"controllerInstanceType,omitempty"`
+	ControllerPrivateSubnet  bool   `yaml:"controllerPrivateSubnet,omitempty"`
 	ControllerRootVolumeType string `yaml:"controllerRootVolumeType,omitempty"`
 	ControllerRootVolumeIOPS int    `yaml:"controllerRootVolumeIOPS,omitempty"`
 	ControllerRootVolumeSize int    `yaml:"controllerRootVolumeSize,omitempty"`
