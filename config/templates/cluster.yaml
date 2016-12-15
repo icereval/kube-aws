@@ -112,12 +112,6 @@ worker:
 #   - sg-1234abcd
 #   - sg-5678efab
 
-# Place workers on a private subnet with NAT gateway. Use the below `workerSubnets` section to define network CIDRs.
-# workerPrivateSubnet: false
-
-# Place controllers on a private subnet with NAT gateway. Use the below `controllerSubnets` section to define network CIDRs.
-# controllerPrivateSubnet: false
-
 ## Etcd Cluster config
 ## WARNING: Any changes to etcd parameters after the cluster is first created will not be applied
 ## during a cluster upgrade, due to concerns over data loss.
@@ -159,6 +153,15 @@ worker:
 
 ## Networking config
 
+# Place etcd nodes on a private subnet with NAT gateway. Use the below `etcdSubnets` section to define network CIDRs.
+# etcdPrivateSubnet: false
+
+# Place controllers on a private subnet with NAT gateway. Use the below `controllerSubnets` section to define network CIDRs.
+# controllerPrivateSubnet: false
+
+# Place workers on a private subnet with NAT gateway. Use the below `workerSubnets` section to define network CIDRs.
+# workerPrivateSubnet: false
+
 # ID of existing VPC to create subnet in. Leave blank to create a new VPC
 # vpcId:
 
@@ -177,7 +180,7 @@ worker:
 #     instanceCIDR: "10.0.0.0/24"
 #   - availabilityZone: us-west-1b
 #     instanceCIDR: "10.0.1.0/24"
-# workerSubnets:
+# etcdSubnets:
 #   - availabilityZone: us-west-1a
 #     instanceCIDR: "10.0.2.0/24"
 #   - availabilityZone: us-west-1b
@@ -187,8 +190,13 @@ worker:
 #     instanceCIDR: "10.0.4.0/24"
 #   - availabilityZone: us-west-1b
 #     instanceCIDR: "10.0.5.0/24"
+# workerSubnets:
+#   - availabilityZone: us-west-1a
+#     instanceCIDR: "10.0.6.0/24"
+#   - availabilityZone: us-west-1b
+#     instanceCIDR: "10.0.7.0/24"
 
-# Pre-allocated EIP for NAT Gateways. Used with workerPrivateSubnets.
+# Pre-allocated EIP for NAT Gateways. Used with private subnets.
 # eipAllocationIDs:
 #   - "eipalloc-abcdef12"
 

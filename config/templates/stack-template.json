@@ -487,7 +487,7 @@
         "KeyName": "{{$.KeyName}}",
         "NetworkInterfaces": [
           {
-            "AssociatePublicIpAddress": {{$.MapPublicIPs}},
+            "AssociatePublicIpAddress": {{not $.EtcdPrivateSubnet}},
             "DeleteOnTermination": true,
             "DeviceIndex": "0",
             "GroupSet": [
@@ -497,7 +497,11 @@
             ],
             "PrivateIpAddress": "{{$etcdInstance.IPAddress}}",
             "SubnetId": {
+              {{if $.EtcdPrivateSubnet}}
+              "Ref": "EtcdSubnet{{$etcdInstance.SubnetIndex}}"
+              {{else}}
               "Ref": "Subnet{{$etcdInstance.SubnetIndex}}"
+              {{end}}
             }
           }
         ],
@@ -1070,6 +1074,32 @@
     {{end}}
     {{end}}
     {{end}}
+    {{if $.EtcdPrivateSubnet}}
+    {{range $index, $etcdSubnet := .EtcdSubnets}}
+    {{with $etcdSubnetLogicalName := printf "EtcdSubnet%d" $index}}
+    ,
+    "{{$etcdSubnetLogicalName}}": {
+      "Properties": {
+        "AvailabilityZone": "{{$etcdSubnet.AvailabilityZone}}",
+        "CidrBlock": "{{$etcdSubnet.InstanceCIDR}}",
+        "MapPublicIpOnLaunch": {{not $.EtcdPrivateSubnet}},
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "{{$.ClusterName}}-{{$etcdSubnetLogicalName}}"
+          },
+          {
+            "Key": "KubernetesCluster",
+            "Value": "{{$.ClusterName}}"
+          }
+        ],
+        "VpcId": {{$.VPCRef}}
+      },
+      "Type": "AWS::EC2::Subnet"
+    }
+    {{end}}
+    {{end}}
+    {{end}}
     {{if $.WorkerPrivateSubnet}}
     {{range $index, $workerSubnet := .WorkerSubnets}}
     {{with $workerSubnetLogicalName := printf "WorkerSubnet%d" $index}}
@@ -1184,8 +1214,50 @@
       },
       "Type": "AWS::EC2::InternetGateway"
     },
+    {{if .EtcdPrivateSubnet}}
+    {{range $index, $subnet := .EtcdSubnets}}
+    {{with $subnetLogicalName := printf "Subnet%d" $index}}
+    "EtcdSubnet{{$index}}RouteTable": {
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "{{$.ClusterName}}-route-table"
+          },
+          {
+            "Key": "KubernetesCluster",
+            "Value": "{{$.ClusterName}}"
+          }
+        ],
+        "VpcId": {{$.VPCRef}}
+      },
+      "Type": "AWS::EC2::RouteTable"
+    },
+    "EtcdSubnet{{$index}}RouteToNatGateway": {
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "{{$subnetLogicalName}}NatGateway"
+        },
+        "RouteTableId": { "Ref" : "EtcdSubnet{{$index}}RouteTable" }
+      },
+      "Type": "AWS::EC2::Route"
+    },
+    "EtcdSubnet{{$index}}RouteTableAssociation": {
+      "Properties": {
+        "RouteTableId": { "Ref" : "EtcdSubnet{{$index}}RouteTable"},
+        "SubnetId": {
+          "Ref": "EtcdSubnet{{$index}}"
+        }
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    },
+    {{end}}
+    {{end}}
+    {{end}}
+
     {{if .ControllerPrivateSubnet}}
-    {{range $index, $subnet := .Subnets}}
+    {{range $index, $subnet := .ControllerSubnets}}
     {{with $subnetLogicalName := printf "Subnet%d" $index}}
     "ControllerSubnet{{$index}}RouteTable": {
       "Properties": {
@@ -1227,7 +1299,7 @@
     {{end}}
 
     {{if .WorkerPrivateSubnet}}
-    {{range $index, $subnet := .Subnets}}
+    {{range $index, $subnet := .WorkerSubnets}}
     {{with $subnetLogicalName := printf "Subnet%d" $index}}
     "WorkerSubnet{{$index}}RouteTable": {
       "Properties": {

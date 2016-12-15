@@ -75,6 +75,7 @@ func NewDefaultCluster() *Cluster {
 			AWSCliTag:          "master",
 			ContainerRuntime:   "docker",
 			Subnets:            []*Subnet{},
+			EtcdSubnets:        []*Subnet{},
 			ControllerSubnets:  []*Subnet{},
 			WorkerSubnets:      []*Subnet{},
 			EIPAllocationIDs:   []string{},
@@ -108,6 +109,7 @@ func NewDefaultCluster() *Cluster {
 		EtcdSettings: EtcdSettings{
 			EtcdCount:          1,
 			EtcdInstanceType:   "m3.medium",
+			EtcdPrivateSubnet:  false,
 			EtcdRootVolumeSize: 30,
 			EtcdRootVolumeType: "gp2",
 			EtcdRootVolumeIOPS: 0,
@@ -231,6 +233,7 @@ type DeploymentSettings struct {
 	KMSKeyARN           string            `yaml:"kmsKeyArn,omitempty"`
 	StackTags           map[string]string `yaml:"stackTags,omitempty"`
 	Subnets             []*Subnet         `yaml:"subnets,omitempty"`
+	EtcdSubnets         []*Subnet         `yaml:"etcdSubnets,omitempty"`
 	ControllerSubnets   []*Subnet         `yaml:"controllerSubnets,omitempty"`
 	WorkerSubnets       []*Subnet         `yaml:"workerSubnets,omitempty"`
 	EIPAllocationIDs    []string          `yaml:"eipAllocationIDs,omitempty"`
@@ -272,6 +275,7 @@ type ControllerSettings struct {
 type EtcdSettings struct {
 	EtcdCount               int    `yaml:"etcdCount"`
 	EtcdInstanceType        string `yaml:"etcdInstanceType,omitempty"`
+	EtcdPrivateSubnet       bool   `yaml:"etcdPrivateSubnet,omitempty"`
 	EtcdRootVolumeSize      int    `yaml:"etcdRootVolumeSize,omitempty"`
 	EtcdRootVolumeType      string `yaml:"etcdRootVolumeType,omitempty"`
 	EtcdRootVolumeIOPS      int    `yaml:"etcdRootVolumeIOPS,omitempty"`
@@ -508,6 +512,9 @@ func (c Cluster) Config() (*Config, error) {
 		//Round-robbin etcd instances across all available subnets
 		subnetIndex := etcdIndex % len(config.Subnets)
 		subnet := config.Subnets[subnetIndex]
+		if config.EtcdPrivateSubnet {
+			subnet = config.EtcdSubnets[subnetIndex]
+		}
 
 		_, subnetCIDR, err := net.ParseCIDR(subnet.InstanceCIDR)
 		if err != nil {
