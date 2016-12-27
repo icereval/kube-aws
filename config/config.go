@@ -75,10 +75,7 @@ func NewDefaultCluster() *Cluster {
 			AWSCliImageRepo:    "quay.io/coreos/awscli",
 			AWSCliTag:          "master",
 			ContainerRuntime:   "docker",
-			Subnets:            []*Subnet{},
-			EtcdSubnets:        []*Subnet{},
-			ControllerSubnets:  []*Subnet{},
-			WorkerSubnets:      []*Subnet{},
+			Subnets:            []*model.Subnet{},
 			EIPAllocationIDs:   []string{},
 			MapPublicIPs:       true,
 			Experimental:       experimental,
@@ -91,7 +88,6 @@ func NewDefaultCluster() *Cluster {
 			WorkerCount:            1,
 			WorkerCreateTimeout:    "PT15M",
 			WorkerInstanceType:     "m3.medium",
-			WorkerPrivateSubnet:    false,
 			WorkerRootVolumeType:   "gp2",
 			WorkerRootVolumeIOPS:   0,
 			WorkerRootVolumeSize:   30,
@@ -102,7 +98,6 @@ func NewDefaultCluster() *Cluster {
 			ControllerCount:          1,
 			ControllerCreateTimeout:  "PT15M",
 			ControllerInstanceType:   "m3.medium",
-			ControllerPrivateSubnet:  false,
 			ControllerRootVolumeType: "gp2",
 			ControllerRootVolumeIOPS: 0,
 			ControllerRootVolumeSize: 30,
@@ -111,7 +106,6 @@ func NewDefaultCluster() *Cluster {
 		EtcdSettings: EtcdSettings{
 			EtcdCount:          1,
 			EtcdInstanceType:   "m3.medium",
-			EtcdPrivateSubnet:  false,
 			EtcdRootVolumeSize: 30,
 			EtcdRootVolumeType: "gp2",
 			EtcdRootVolumeIOPS: 0,
@@ -177,7 +171,7 @@ func ClusterFromBytes(data []byte) (*Cluster, error) {
 
 	// For backward-compatibility
 	if len(c.Subnets) == 0 {
-		c.Subnets = []*Subnet{
+		c.Subnets = []*model.Subnet{
 			{
 				AvailabilityZone: c.AvailabilityZone,
 				InstanceCIDR:     c.InstanceCIDR,
@@ -216,14 +210,15 @@ type ComputedDeploymentSettings struct {
 // Though it is highly configurable, it's basically users' responsibility to provide `correct` values if they're going beyond the defaults.
 type DeploymentSettings struct {
 	ComputedDeploymentSettings
-	ClusterName      string `yaml:"clusterName,omitempty"`
-	KeyName          string `yaml:"keyName,omitempty"`
-	Region           string `yaml:"region,omitempty"`
-	AvailabilityZone string `yaml:"availabilityZone,omitempty"`
-	ReleaseChannel   string `yaml:"releaseChannel,omitempty"`
-	AmiId            string `yaml:"amiId,omitempty"`
-	VPCID            string `yaml:"vpcId,omitempty"`
-	RouteTableID     string `yaml:"routeTableId,omitempty"`
+	ClusterName       string `yaml:"clusterName,omitempty"`
+	KeyName           string `yaml:"keyName,omitempty"`
+	Region            string `yaml:"region,omitempty"`
+	AvailabilityZone  string `yaml:"availabilityZone,omitempty"`
+	ReleaseChannel    string `yaml:"releaseChannel,omitempty"`
+	AmiId             string `yaml:"amiId,omitempty"`
+	VPCID             string `yaml:"vpcId,omitempty"`
+	InternetGatewayID string `yaml:"internetGatewayId,omitempty"`
+	RouteTableID      string `yaml:"routeTableId,omitempty"`
 	// Required for validations like e.g. if instance cidr is contained in vpc cidr
 	VPCCIDR             string            `yaml:"vpcCIDR,omitempty"`
 	InstanceCIDR        string            `yaml:"instanceCIDR,omitempty"`
@@ -234,10 +229,7 @@ type DeploymentSettings struct {
 	ContainerRuntime    string            `yaml:"containerRuntime,omitempty"`
 	KMSKeyARN           string            `yaml:"kmsKeyArn,omitempty"`
 	StackTags           map[string]string `yaml:"stackTags,omitempty"`
-	Subnets             []*Subnet         `yaml:"subnets,omitempty"`
-	EtcdSubnets         []*Subnet         `yaml:"etcdSubnets,omitempty"`
-	ControllerSubnets   []*Subnet         `yaml:"controllerSubnets,omitempty"`
-	WorkerSubnets       []*Subnet         `yaml:"workerSubnets,omitempty"`
+	Subnets             []*model.Subnet   `yaml:"subnets,omitempty"`
 	EIPAllocationIDs    []string          `yaml:"eipAllocationIDs,omitempty"`
 	MapPublicIPs        bool              `yaml:"mapPublicIPs,omitempty"`
 	ElasticFileSystemID string            `yaml:"elasticFileSystemId,omitempty"`
@@ -251,7 +243,6 @@ type WorkerSettings struct {
 	WorkerCount            int      `yaml:"workerCount,omitempty"`
 	WorkerCreateTimeout    string   `yaml:"workerCreateTimeout,omitempty"`
 	WorkerInstanceType     string   `yaml:"workerInstanceType,omitempty"`
-	WorkerPrivateSubnet    bool     `yaml:"workerPrivateSubnet,omitempty"`
 	WorkerRootVolumeType   string   `yaml:"workerRootVolumeType,omitempty"`
 	WorkerRootVolumeIOPS   int      `yaml:"workerRootVolumeIOPS,omitempty"`
 	WorkerRootVolumeSize   int      `yaml:"workerRootVolumeSize,omitempty"`
@@ -266,7 +257,6 @@ type ControllerSettings struct {
 	ControllerCount          int    `yaml:"controllerCount,omitempty"`
 	ControllerCreateTimeout  string `yaml:"controllerCreateTimeout,omitempty"`
 	ControllerInstanceType   string `yaml:"controllerInstanceType,omitempty"`
-	ControllerPrivateSubnet  bool   `yaml:"controllerPrivateSubnet,omitempty"`
 	ControllerRootVolumeType string `yaml:"controllerRootVolumeType,omitempty"`
 	ControllerRootVolumeIOPS int    `yaml:"controllerRootVolumeIOPS,omitempty"`
 	ControllerRootVolumeSize int    `yaml:"controllerRootVolumeSize,omitempty"`
@@ -275,9 +265,9 @@ type ControllerSettings struct {
 
 // Part of configuration which is specific to etcd nodes
 type EtcdSettings struct {
+	model.Etcd              `yaml:"etcd,omitempty"`
 	EtcdCount               int    `yaml:"etcdCount"`
 	EtcdInstanceType        string `yaml:"etcdInstanceType,omitempty"`
-	EtcdPrivateSubnet       bool   `yaml:"etcdPrivateSubnet,omitempty"`
 	EtcdRootVolumeSize      int    `yaml:"etcdRootVolumeSize,omitempty"`
 	EtcdRootVolumeType      string `yaml:"etcdRootVolumeType,omitempty"`
 	EtcdRootVolumeIOPS      int    `yaml:"etcdRootVolumeIOPS,omitempty"`
@@ -308,12 +298,6 @@ type Cluster struct {
 	HostedZone             string `yaml:"hostedZone,omitempty"`
 	HostedZoneID           string `yaml:"hostedZoneId,omitempty"`
 	providedEncryptService EncryptService
-}
-
-type Subnet struct {
-	AvailabilityZone  string `yaml:"availabilityZone,omitempty"`
-	InstanceCIDR      string `yaml:"instanceCIDR,omitempty"`
-	lastAllocatedAddr *net.IP
 }
 
 type Experimental struct {
@@ -400,6 +384,7 @@ type WaitSignal struct {
 
 const (
 	vpcLogicalName = "VPC"
+	internetGatewayLogicalName = "InternetGateway"
 )
 
 var supportedReleaseChannels = map[string]bool{
@@ -490,6 +475,7 @@ func (c Cluster) Config() (*Config, error) {
 
 	//Set logical name constants
 	config.VPCLogicalName = vpcLogicalName
+	config.InternetGatewayLogicalName = internetGatewayLogicalName
 
 	//Set reference strings
 
@@ -500,22 +486,24 @@ func (c Cluster) Config() (*Config, error) {
 		config.VPCRef = fmt.Sprintf("%q", config.VPCID)
 	}
 
+	//Assume Internet Gateway does not exist, reference by logical name
+	config.InternetGatewayRef = fmt.Sprintf(`{ "Ref" : %q }`, config.InternetGatewayLogicalName)
+	if config.InternetGatewayID != "" {
+		//This means this Internet Gateway already exists, and we can reference it directly by ID
+		config.InternetGatewayRef = fmt.Sprintf("%q", config.InternetGatewayID)
+	}
+
 	config.EtcdInstances = make([]etcdInstance, config.EtcdCount)
 	var etcdEndpoints, etcdInitialCluster bytes.Buffer
 
-	// Reset lastAllocatedAddr or we'll end up returning different cluster config w/ inconsistent static private ips
-	// for each time we call this function `cluster.Config()`
-	for _, subnet := range config.Subnets {
-		subnet.lastAllocatedAddr = nil
-	}
-
+	var lastAllocatedAddr = make(map[*model.Subnet]*net.IP)
 	for etcdIndex := 0; etcdIndex < config.EtcdCount; etcdIndex++ {
 
 		//Round-robbin etcd instances across all available subnets
 		subnetIndex := etcdIndex % len(config.Subnets)
 		subnet := config.Subnets[subnetIndex]
-		if config.EtcdPrivateSubnet {
-			subnet = config.EtcdSubnets[subnetIndex]
+		if config.Etcd.TopologyPrivate() {
+			subnet = config.Etcd.PrivateSubnets[subnetIndex]
 		}
 
 		_, subnetCIDR, err := net.ParseCIDR(subnet.InstanceCIDR)
@@ -523,20 +511,20 @@ func (c Cluster) Config() (*Config, error) {
 			return nil, fmt.Errorf("error parsing subnet instance cidr %s: %v", subnet.InstanceCIDR, err)
 		}
 
-		if subnet.lastAllocatedAddr == nil {
+		if lastAllocatedAddr[subnet] == nil {
 			ip := subnetCIDR.IP
 			//TODO:(chom) this is sloppy, but "soon-ish" etcd with be self-hosted so we'll leave this be
 			for i := 0; i < 3; i++ {
 				ip = netutil.IncrementIP(ip)
 			}
-			subnet.lastAllocatedAddr = &ip
+			lastAllocatedAddr[subnet] = &ip
 		}
 
-		nextAddr := netutil.IncrementIP(*subnet.lastAllocatedAddr)
-		subnet.lastAllocatedAddr = &nextAddr
+		nextAddr := netutil.IncrementIP(*lastAllocatedAddr[subnet])
+		lastAllocatedAddr[subnet] = &nextAddr
 		instance := etcdInstance{
-			IPAddress:   *subnet.lastAllocatedAddr,
-			SubnetIndex: subnetIndex,
+			IPAddress:   *lastAllocatedAddr[subnet],
+			Subnet: subnet,
 		}
 
 		//TODO(chom): validate we're not overflowing the address space
@@ -688,7 +676,7 @@ func (c Cluster) RenderStackTemplate(opts StackTemplateOptions, prettyPrint bool
 
 type etcdInstance struct {
 	IPAddress   net.IP
-	SubnetIndex int
+	Subnet      *model.Subnet
 }
 
 type Config struct {
@@ -703,9 +691,11 @@ type Config struct {
 
 	//Logical names of dynamic resources
 	VPCLogicalName string
+	InternetGatewayLogicalName string
 
 	//Reference strings for dynamic resources
 	VPCRef string
+	InternetGatewayRef string
 }
 
 // CloudFormation stack name which is unique in an AWS account.
@@ -852,8 +842,8 @@ func (c DeploymentSettings) Valid() (*DeploymentValidationResult, error) {
 		return nil, errors.New("kmsKeyArn must be set")
 	}
 
-	if c.VPCID == "" && c.RouteTableID != "" {
-		return nil, errors.New("vpcId must be specified if routeTableId is specified")
+	if c.VPCID == "" && (c.RouteTableID != "" || c.InternetGatewayID != "") {
+		return nil, errors.New("vpcId must be specified if routeTableId or internetGatewayId are specified")
 	}
 
 	if c.Region == "" {
