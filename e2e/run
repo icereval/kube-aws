@@ -3,9 +3,11 @@
 KUBE_AWS_CMD=${KUBE_AWS_CMD:-$GOPATH/src/github.com/coreos/kube-aws/bin/kube-aws}
 E2E_DIR=$(cd $(dirname $0); pwd)
 WORK_DIR=${E2E_DIR}/assets/${KUBE_AWS_CLUSTER_NAME}
+TESTINFRA_DIR=${E2E_DIR}/testinfra
 KUBE_AWS_NODE_POOL_INDEX=${KUBE_AWS_NODE_POOL_INDEX:-1}
 KUBE_AWS_NODE_POOL_NAME=${KUBE_AWS_CLUSTER_NAME}-nodepool${KUBE_AWS_NODE_POOL_INDEX}
 NODE_POOL_ASSETS_DIR=${E2E_DIR}/assets/${KUBE_AWS_CLUSTER_NAME}/node-pools/${KUBE_AWS_NODE_POOL_NAME}
+KUBE_AWS_TEST_INFRA_STACK_NAME=${KUBE_AWS_TEST_INFRA_STACK_NAME:-${KUBE_AWS_CLUSTER_NAME}-testinfra}
 SRC_DIR=$(cd $(dirname $0); cd ..; pwd)
 KUBECONFIG=${WORK_DIR}/kubeconfig
 
@@ -91,6 +93,18 @@ configure() {
 }
 
 customize_worker() {
+  echo Writing to $(pwd)/cluster.yaml
+
+  if [ "${KUBE_AWS_DEPLOY_TO_EXISTING_VPC}" != "" ]; then
+    echo "vpcId: $(testinfra_vpc)" >> cluster.yaml
+    echo "routeTableId: $(testinfra_public_routetable)" >> cluster.yaml
+    echo -e "workerSecurityGroupIds:\n- $(testinfra_glue_sg)" >> cluster.yaml
+  fi
+
+  #
+  # Optionally enable experimental other features
+  #
+
   echo -e 'experimental:\n  nodeDrainer:\n    enabled: true' >> cluster.yaml
   if [ "${KUBE_AWS_WAIT_SIGNAL_ENABLED}" != "" ]; then
     echo -e '  waitSignal:\n    enabled: true' >> cluster.yaml
@@ -104,6 +118,16 @@ customize_worker() {
   if [ "${KUBE_AWS_AWS_ENV_ENABLED}" != "" ]; then
     echo -e "  awsEnvironment:\n    enabled: true\n    environment:\n      CFNSTACK: '{\"Ref\":\"AWS::StackId\"}'" >> cluster.yaml
   fi
+  if [ "${KUBE_AWS_DEPLOY_TO_EXISTING_VPC}" != "" ]; then
+    echo -e "  loadBalancer:\n    enabled: true\n    names:\n      - $(testinfra_public_lb)\n    securityGroupIds:\n      - $(testinfra_public_lb_backend_sg)" >> cluster.yaml
+  fi
+
+
+  #
+  # Optionally enable experimental worker features
+  #
+
+  echo -e "worker:" >> cluster.yaml
 }
 
 clean() {
@@ -184,6 +208,25 @@ conformance() {
     exit 1
   fi
 
+  echo Opening ingress on 4194 and 10250...
+
+  # Authorize these ingresses for E2E testing or it'll end up failing like:
+  #
+  # Summarizing 2 Failures:
+  #
+  # [Fail] [k8s.io] Proxy version v1 [It] should proxy logs on node using proxy subresource [Conformance]
+  # /go/kubernetes/_output/local/go/src/k8s.io/kubernetes/test/e2e/proxy.go:325
+  #
+  # [Fail] [k8s.io] Proxy version v1 [It] should proxy logs on node with explicit kubelet port [Conformance]
+  # /go/kubernetes/_output/local/go/src/k8s.io/kubernetes/test/e2e/proxy.go:325
+  #
+  # Ran 117 of 473 Specs in 3529.785 seconds
+  # FAIL! -- 115 Passed | 2 Failed | 0 Pending | 356 Skipped --- FAIL: TestE2E (3529.90s)
+  #
+  group_id=$(aws cloudformation --output json describe-stack-resources --stack-name ${KUBE_AWS_CLUSTER_NAME} | jq -r '.StackResources[] | select(.LogicalResourceId == "SecurityGroupController").PhysicalResourceId')
+  aws ec2 authorize-security-group-ingress --group-id ${group_id} --protocol tcp --port 4194 --source-group ${group_id} || echo 'skipping authorization for 4194'
+  aws ec2 authorize-security-group-ingress --group-id ${group_id} --protocol tcp --port 10250 --source-group ${group_id} || echo 'skipping authorization for 10250'
+
   master_host=$(controller_host)
 
   echo Connecting to $master_host via SSH
@@ -235,14 +278,16 @@ nodepool_init() {
 
   cd ${NODE_POOL_ASSETS_DIR}
 
-  if [ "${KUBE_AWS_SPOT_FLEET_ENABLED}" != "" ]; then
-    echo Writing ${NODE_POOL_ASSETS_DIR}/cluster.yaml
-    echo -e "worker:\n  spotFleet:\n    targetCapacity: 3\n" >> ${NODE_POOL_ASSETS_DIR}/cluster.yaml
-  fi
-
   echo -e "instanceCIDR: 10.0.${KUBE_AWS_NODE_POOL_INDEX}.0/24" >> ${NODE_POOL_ASSETS_DIR}/cluster.yaml
 
   customize_worker
+
+  if [ "${KUBE_AWS_SPOT_FLEET_ENABLED}" != "" ]; then
+    echo -e "  spotFleet:\n    targetCapacity: 3\n" >> cluster.yaml
+  fi
+  if [ "${KUBE_AWS_CLUSTER_AUTOSCALER_ENABLED}" != "" ]; then
+    echo -e "  clusterAutoscaler:\n    minSize: 1\n    maxSize: 2" >> cluster.yaml
+  fi
 }
 
 nodepool_render() {
@@ -285,7 +330,14 @@ nodepool_update() {
 nodepool_destroy() {
   cd ${WORK_DIR}
 
-  ${KUBE_AWS_CMD} node-pools destroy --node-pool-name ${KUBE_AWS_NODE_POOL_NAME}
+  status=$(aws cloudformation describe-stacks --stack-name ${KUBE_AWS_NODE_POOL_NAME} --output json | jq -rc '.Stacks[0].StackStatus')
+
+  if [ "$status" != "DELETE_IN_PROGRESS" ]; then
+    ${KUBE_AWS_CMD} node-pools destroy --node-pool-name ${KUBE_AWS_NODE_POOL_NAME}
+  else
+    aws cloudformation wait stack-delete-complete \
+        --stack-name ${KUBE_AWS_NODE_POOL_NAME}
+  fi
 }
 
 nodepool() {
@@ -298,14 +350,79 @@ nodepool() {
   nodepool_update
 }
 
+testinfra_up() {
+  cd ${TESTINFRA_DIR}
+
+  aws cloudformation create-stack \
+    --template-body file://$(pwd)/stack-template.yaml \
+    --stack-name ${KUBE_AWS_TEST_INFRA_STACK_NAME} \
+    --parameter ParameterKey=AZ1,ParameterValue=${KUBE_AWS_AZ_1}
+  aws cloudformation wait stack-create-complete \
+    --stack-name ${KUBE_AWS_TEST_INFRA_STACK_NAME}
+}
+
+testinfra_update() {
+  cd ${TESTINFRA_DIR}
+
+  aws cloudformation update-stack \
+    --template-body file://$(pwd)/stack-template.yaml \
+    --stack-name ${KUBE_AWS_TEST_INFRA_STACK_NAME} \
+    --parameter ParameterKey=AZ1,ParameterValue=${KUBE_AWS_AZ_1}
+  aws cloudformation wait stack-update-complete \
+    --stack-name ${KUBE_AWS_TEST_INFRA_STACK_NAME}
+}
+
+testinfra_destroy() {
+  aws cloudformation delete-stack --stack-name ${KUBE_AWS_TEST_INFRA_STACK_NAME}
+  aws cloudformation wait stack-delete-complete \
+    --stack-name ${KUBE_AWS_TEST_INFRA_STACK_NAME}
+}
+
+testinfra_output() {
+  aws cloudformation describe-stacks --stack-name ${KUBE_AWS_TEST_INFRA_STACK_NAME} | jq -r '.Stacks[0].Outputs[] | select(.OutputKey == "'$1'").OutputValue'
+}
+
+testinfra_vpc() {
+  testinfra_output VPC
+}
+
+testinfra_public_routetable() {
+  testinfra_output PublicRouteTable
+}
+
+testinfra_public_lb_backend_sg() {
+  testinfra_output PublicLBBackendSG
+}
+
+testinfra_public_lb() {
+  testinfra_output PublicLB
+}
+
+testinfra_glue_sg() {
+  testinfra_output GlueSG
+}
+
 all() {
   build
+
+  if [ "${KUBE_AWS_DEPLOY_TO_EXISTING_VPC}" != "" ]; then
+    testinfra_up
+  fi
+
   prepare
   configure
   up
   nodepool
   update
   conformance
+}
+
+all_destroy() {
+  nodepool_destroy
+  destroy
+  if [ "${KUBE_AWS_DEPLOY_TO_EXISTING_VPC}" != "" ]; then
+    testinfra_destroy
+  fi
 }
 
 if [ "$1" == "" ]; then

@@ -20,6 +20,7 @@ import (
 	model "github.com/coreos/kube-aws/model"
 	"github.com/coreos/kube-aws/netutil"
 	yaml "gopkg.in/yaml.v2"
+	"strconv"
 )
 
 const (
@@ -69,7 +70,7 @@ func NewDefaultCluster() *Cluster {
 			ClusterName:        "kubernetes",
 			VPCCIDR:            "10.0.0.0/16",
 			ReleaseChannel:     "stable",
-			K8sVer:             "v1.4.6_coreos.0",
+			K8sVer:             "v1.5.1_coreos.0",
 			HyperkubeImageRepo: "quay.io/coreos/hyperkube",
 			AWSCliImageRepo:    "quay.io/coreos/awscli",
 			AWSCliTag:          "master",
@@ -86,6 +87,7 @@ func NewDefaultCluster() *Cluster {
 			DNSServiceIP: "10.3.0.10",
 		},
 		WorkerSettings: WorkerSettings{
+			Worker:                 model.NewDefaultWorker(),
 			WorkerCount:            1,
 			WorkerCreateTimeout:    "PT15M",
 			WorkerInstanceType:     "m3.medium",
@@ -804,6 +806,12 @@ func (c Cluster) valid() error {
 		return fmt.Errorf("selected worker tenancy (%s) is incompatible with spot instances", c.WorkerTenancy)
 	}
 
+	if c.Worker.ClusterAutoscaler.Enabled() {
+		return fmt.Errorf("cluster-autoscaler support can't be enabled for a main cluster because allowing so" +
+			"results in unreliability while scaling nodes out. " +
+			"Use experimental node pools instead to deploy worker nodes with cluster-autoscaler support.")
+	}
+
 	return nil
 }
 
@@ -1090,12 +1098,36 @@ func (c WorkerDeploymentSettings) WorkerSecurityGroupRefs() []string {
 	return refs
 }
 
+func (c WorkerDeploymentSettings) StackTags() map[string]string {
+	tags := map[string]string{}
+
+	for k, v := range c.DeploymentSettings.StackTags {
+		tags[k] = v
+	}
+
+	if c.Worker.ClusterAutoscaler.Enabled() {
+		tags["kube-aws:cluster-autoscaler:logical-name"] = "AutoScaleWorker"
+		tags["kube-aws:cluster-autoscaler:min-size"] = strconv.Itoa(c.Worker.ClusterAutoscaler.MinSize)
+		tags["kube-aws:cluster-autoscaler:max-size"] = strconv.Itoa(c.Worker.ClusterAutoscaler.MaxSize)
+	}
+
+	return tags
+}
+
 func (c WorkerDeploymentSettings) Valid() error {
 	sgRefs := c.WorkerSecurityGroupRefs()
 	numSGs := len(sgRefs)
 
 	if numSGs > 4 {
 		return fmt.Errorf("number of user provided security groups must be less than or equal to 4 but was %d (actual EC2 limit is 5 but one of them is reserved for kube-aws) : %v", numSGs, sgRefs)
+	}
+
+	if c.SpotFleet.Enabled() && c.Experimental.AwsEnvironment.Enabled {
+		return fmt.Errorf("The experimental feature `awsEnvironment` assumes a node pool is managed by an ASG rather than a Spot Fleet.")
+	}
+
+	if c.SpotFleet.Enabled() && c.Experimental.WaitSignal.Enabled {
+		return fmt.Errorf("The experimental feature `waitSignal` assumes a node pool is managed by an ASG rather than a Spot Fleet.")
 	}
 
 	return nil
