@@ -5,6 +5,14 @@ import (
 	"fmt"
 )
 
+const (
+	publicSubnetLogicalName = "Subnet"
+	privateSubnetLogicalName = "PrivateRouteTable"
+	privateRouteTableLogicalName = "PrivateRouteTable"
+	natGatewayLogicalName = "NatGateway"
+	eipAllocationLogicalName = "EIPAllocation"
+)
+
 type Subnet struct {
 	Identifier       `yaml:",inline"`
 	AvailabilityZone string     `yaml:"availabilityZone,omitempty"`
@@ -17,7 +25,7 @@ func (c Subnet) AvailabilityZoneLogicalName() string {
 }
 
 func (c Subnet) NatGatewayLogicalName() string {
-	return "NatGateway" + c.AvailabilityZoneLogicalName()
+	return natGatewayLogicalName + c.AvailabilityZoneLogicalName()
 }
 
 func (c Subnet) NatGatewayRef() string {
@@ -25,7 +33,7 @@ func (c Subnet) NatGatewayRef() string {
 }
 
 func (c Subnet) NatGatewayEIPAllocationLogicalName() string {
-	return c.NatGatewayLogicalName() + "EIPAllocation"
+	return c.NatGatewayLogicalName() + eipAllocationLogicalName
 }
 
 func (c Subnet) NatGatewayEIPAllocationRef() string {
@@ -43,7 +51,7 @@ type PublicSubnet struct {
 }
 
 func (c PublicSubnet) LogicalName() string {
-	return "Subnet" + c.AvailabilityZoneLogicalName()
+	return publicSubnetLogicalName + c.AvailabilityZoneLogicalName()
 }
 
 func (c PublicSubnet) Ref() string {
@@ -51,7 +59,7 @@ func (c PublicSubnet) Ref() string {
 }
 
 func (c PublicSubnet) PrivateRouteTableLogicalName() string {
-	return "PrivateRouteTable" + c.AvailabilityZoneLogicalName()
+	return privateSubnetLogicalName + c.AvailabilityZoneLogicalName()
 }
 
 func (c PublicSubnet) PrivateRouteTableRef() string {
@@ -64,7 +72,7 @@ type PrivateSubnet struct {
 }
 
 func (c PrivateSubnet) LogicalName(prefix string) string {
-	return prefix + "PrivateSubnet" + c.AvailabilityZoneLogicalName()
+	return prefix + privateSubnetLogicalName + c.AvailabilityZoneLogicalName()
 }
 
 func (c PrivateSubnet) Ref(prefix string) string {
@@ -72,13 +80,14 @@ func (c PrivateSubnet) Ref(prefix string) string {
 }
 
 func (c PrivateSubnet) RouteTableLogicalName() string {
-	return "PrivateRouteTable" + c.AvailabilityZoneLogicalName()
+	return privateRouteTableLogicalName + c.AvailabilityZoneLogicalName()
 }
 
 func (c PrivateSubnet) RouteTableRef() string {
 	return c.RouteTable.Identifier.Ref(c.RouteTableLogicalName())
 }
 
+// TODO: Might be better to make a map of subnets for use w/ "Fn::FindInMap" by AZ
 func (c PrivateSubnet) PrivateRouteTableRef(publicSubnets []*PublicSubnet) string {
 	for _, subnet := range publicSubnets {
 		if subnet.AvailabilityZone == c.AvailabilityZone {

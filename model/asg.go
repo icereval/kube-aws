@@ -9,7 +9,6 @@ type AutoScalingGroup struct {
 	MinSize                            int `yaml:"minSize,omitempty"`
 	MaxSize                            int `yaml:"maxSize,omitempty"`
 	RollingUpdateMinInstancesInService int `yaml:"rollingUpdateMinInstancesInService,omitempty"`
-	InstanceType     string `yaml:"instanceType,omitempty"`
 }
 
 func (asg AutoScalingGroup) Valid() error {
