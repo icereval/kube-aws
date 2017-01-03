@@ -1401,14 +1401,14 @@
   },
 
   "Outputs": {
-    {{if not $.VPC.ImportID}}
+    {{if not $.VPC.StackID}}
     "{{$.VPC.LogicalName}}" : {
       "Description": "The VPC managed by this stack",
       "Value": {{$.VPC.Ref}},
       "Export": {"Name": {"Fn::Sub": "${AWS::StackName}-{{$.VPC.LogicalName}}"}}
     },
     {{end}}
-    {{if not $.RouteTable.ImportID}}
+    {{if not $.RouteTable.StackID}}
     "{{$.RouteTable.LogicalName}}" : {
       "Description": "The public route table assigned to the internet gateway for worker nodes",
       "Value":  {{$.RouteTable.Ref}},
@@ -1417,7 +1417,7 @@
     {{end}}
     {{if (or $.WorkerTopologyPrivate $.Worker.TopologyPrivate)}}
     {{range $index, $subnet := $.Subnets}}
-    {{if not $subnet.PrivateRouteTable.ImportID}}
+    {{if not $subnet.PrivateRouteTable.StackID}}
     "{{$subnet.PrivateRouteTableLogicalName}}" : {
       "Description" : "The private route table assigned to the nat gateway for worker nodes",
       "Value": {{$subnet.PrivateRouteTableRef}},
