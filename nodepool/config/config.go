@@ -127,10 +127,10 @@ func ClusterFromBytes(data []byte) (*ProvidedConfig, error) {
 		return nil, fmt.Errorf("failed to parse cluster: %v", err)
 	}
 
-	// If the user specified no subnets, we assume that a single AZ configuration with the default instanceCIDR is demanded
-	if len(c.Subnets) == 0 && c.InstanceCIDR == "" {
-		c.InstanceCIDR = "10.0.1.0/24"
-	}
+	//// If the user specified no subnets, we assume that a single AZ configuration with the default instanceCIDR is demanded
+	//if len(c.Subnets) == 0 && c.InstanceCIDR == "" {
+	//	c.InstanceCIDR = "10.0.1.0/24"
+	//}
 
 	//Computed defaults
 	launchSpecs := []model.LaunchSpecification{}
@@ -152,15 +152,17 @@ func ClusterFromBytes(data []byte) (*ProvidedConfig, error) {
 		return nil, fmt.Errorf("invalid cluster: %v", err)
 	}
 
-	// For backward-compatibility
-	if len(c.Subnets) == 0 {
-		c.Subnets = []*model.Subnet{
-			{
-				AvailabilityZone: c.AvailabilityZone,
-				InstanceCIDR:     c.InstanceCIDR,
-			},
-		}
-	}
+	//// For backward-compatibility
+	//if len(c.Subnets) == 0 {
+	//	c.Subnets = []*model.PublicSubnet{
+	//		{
+	//			Subnet: model.Subnet{
+	//				AvailabilityZone: c.AvailabilityZone,
+	//				InstanceCIDR:     c.InstanceCIDR,
+	//			},
+	//		},
+	//	}
+	//}
 
 	return c, nil
 }
@@ -217,13 +219,13 @@ func (c ComputedConfig) StackName() string {
 	return c.NodePoolName
 }
 
-func (c ComputedConfig) VPCRef() string {
-	//This means this VPC already exists, and we can reference it directly by ID
-	if c.VPCID != "" {
-		return fmt.Sprintf("%q", c.VPCID)
-	}
-	return fmt.Sprintf(`{"Fn::ImportValue" : {"Fn::Sub" : "%s-VPC"}}`, c.ClusterName)
-}
+//func (c ComputedConfig) VPCRef() string {
+//	//This means this VPC already exists, and we can reference it directly by ID
+//	if c.VPCID != "" {
+//		return fmt.Sprintf("%q", c.VPCID)
+//	}
+//	return fmt.Sprintf(`{"Fn::ImportValue" : {"Fn::Sub" : "%s-VPC"}}`, c.ClusterName)
+//}
 
 func (c ComputedConfig) WorkerSecurityGroupRefs() []string {
 	refs := c.WorkerDeploymentSettings().WorkerSecurityGroupRefs()

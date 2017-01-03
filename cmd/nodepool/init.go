@@ -25,7 +25,7 @@ var (
 
 func init() {
 	NodePoolCmd.AddCommand(cmdInit)
-	cmdInit.Flags().StringVar(&initOpts.AvailabilityZone, "availability-zone", "", "The AWS availability-zone to deploy to")
+	//cmdInit.Flags().StringVar(&initOpts.AvailabilityZone, "availability-zone", "", "The AWS availability-zone to deploy to")
 	cmdInit.Flags().StringVar(&initOpts.KeyName, "key-name", "", "The AWS key-pair for ssh access to nodes")
 	cmdInit.Flags().StringVar(&initOpts.KMSKeyARN, "kms-key-arn", "", "The ARN of the AWS KMS key for encrypting TLS assets")
 	cmdInit.Flags().StringVar(&initOpts.AmiId, "ami-id", "", "The AMI ID of CoreOS")
@@ -39,7 +39,7 @@ func runCmdInit(cmd *cobra.Command, args []string) error {
 		name, val string
 	}{
 		{"--node-pool-name", initOpts.NodePoolName},
-		{"--availability-zone", initOpts.AvailabilityZone},
+		//{"--availability-zone", initOpts.AvailabilityZone},
 	}
 	var missing []string
 	for _, req := range required {
@@ -87,9 +87,9 @@ func runCmdInit(cmd *cobra.Command, args []string) error {
 		initOpts.ReleaseChannel = main.ReleaseChannel
 	}
 
-	if initOpts.VPCCIDR == "" {
-		initOpts.VPCCIDR = main.VPCCIDR
-	}
+	//if initOpts.VPCCIDR == "" {
+	//	initOpts.VPCCIDR = main.VPCCIDR
+	//}
 
 	// Required, inheritable and importable settings for the node pool.
 	//
@@ -97,13 +97,13 @@ func runCmdInit(cmd *cobra.Command, args []string) error {
 	// If omitted from it, these can also can be exported from the main cluster
 	// and then imported to the node pool in the cloudformation layer.
 
-	if initOpts.VPCID == "" {
-		initOpts.VPCID = main.VPCID
-	}
+	//if initOpts.VPCID == "" {
+	//	initOpts.VPCID = main.VPCID
+	//}
 
-	if initOpts.RouteTableID == "" {
-		initOpts.RouteTableID = main.RouteTableID
-	}
+	//if initOpts.RouteTableID == "" {
+	//	initOpts.RouteTableID = main.RouteTableID
+	//}
 
 	if initOpts.EtcdEndpoints == "" {
 		initOpts.EtcdEndpoints = main.EtcdEndpoints

@@ -4,9 +4,104 @@
   "Mappings" : {
     "EtcdInstanceParams" : {
       "UserData" : {
-	"cloudconfig" : "{{.UserDataEtcd}}"
+        "cloudconfig" : "{{.UserDataEtcd}}"
       }
     }
+  },
+  "Parameters": {
+    "ClusterName": {
+      "Type" : "String",
+      "Default" : "{{.ClusterName}}"
+    },
+    "VPCCIDR": {
+      "Type" : "String",
+      "Default" : "{{.VPC.CIDR}}"
+    }
+
+    {{if .VPC.ID}}
+    ,
+    "{{.VPC.LogicalName}}": {
+      "Type" : "AWS::EC2::VPC::Id",
+      "Default" : "{{.VPC.ID}}"
+    }
+    {{end}}
+
+    {{if .InternetGateway.ID}}
+    ,
+    "{{.InternetGateway.LogicalName}}": {
+      "Type" : "String",
+      "Default" : "{{.InternetGateway.ID}}"
+    }
+    {{end}}
+
+    {{if .RouteTable.ID}}
+    ,
+    "{{.RouteTable.LogicalName}}": {
+      "Type" : "String",
+      "Default" : "{{.RouteTable.ID}}"
+    }
+    {{end}}
+
+    {{range $index, $subnet := .Subnets}}
+    {{if $subnet.ID}}
+    ,
+    "{{$subnet.LogicalName}}": {
+      "Type" : "String",
+      "Default" : "{{$subnet.ID}}"
+    }
+    {{end}}
+    {{if $subnet.NatGateway.ID}}
+    ,
+    "{{$subnet.NatGatewayLogicalName}}": {
+      "Type" : "String",
+      "Default" : "{{$subnet.NatGateway.ID}}"
+    }
+    {{end}}
+    {{if $subnet.NatGateway.EIPAllocation.ID}}
+    ,
+    "{{$subnet.NatGatewayEIPAllocationLogicalName}}": {
+      "Type" : "String",
+      "Default" : "{{$subnet.NatGateway.EIPAllocation.ID}}"
+    }
+    {{end}}
+    {{if $subnet.PrivateRouteTable.ID}}
+    ,
+    "{{$subnet.PrivateRouteTableLogicalName}}": {
+      "Type" : "String",
+      "Default" : "{{$subnet.PrivateRouteTable.ID}}"
+    }
+    {{end}}
+    {{end}}
+
+    {{range $index, $subnet := .Etcd.PrivateSubnets}}
+    {{if $subnet.ID}}
+    ,
+    "{{$subnet.LogicalName "Etcd"}}": {
+      "Type" : "String",
+      "Default" : "{{$subnet.ID}}"
+    }
+    {{end}}
+    {{end}}
+
+    {{range $index, $subnet := .Controller.PrivateSubnets}}
+    {{if $subnet.ID}}
+    ,
+    "{{$subnet.LogicalName "Controller"}}": {
+      "Type" : "String",
+      "Default" : "{{$subnet.ID}}"
+    }
+    {{end}}
+    {{end}}
+
+    {{range $index, $subnet := .Worker.PrivateSubnets}}
+    {{if $subnet.ID}}
+    ,
+    "{{$subnet.LogicalName "Worker"}}": {
+      "Type" : "String",
+      "Default" : "{{$subnet.ID}}"
+    }
+    {{end}}
+    {{end}}
   },
   "Resources": {
     {{if .MinWorkerCount}}
@@ -14,9 +109,9 @@
       "Properties": {
         "AvailabilityZones": [
           {{if $.Worker.TopologyPrivate}}
-          {{range $index, $workerSubnet := .Worker.PrivateSubnets}}
+          {{range $index, $subnet := .Worker.PrivateSubnets}}
           {{if gt $index 0}},{{end}}
-          "{{$workerSubnet.AvailabilityZone}}"
+          "{{$subnet.AvailabilityZone}}"
           {{end}}
           {{else}}
           {{range $index, $subnet := .Subnets}}
@@ -41,7 +136,7 @@
           {
             "Key": "KubernetesCluster",
             "PropagateAtLaunch": "true",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           },
           {
             "Key": "Name",
@@ -59,20 +154,14 @@
         {{end}}
         "VPCZoneIdentifier": [
           {{if $.Worker.TopologyPrivate}}
-          {{range $index, $workerSubnet := .Worker.PrivateSubnets}}
-          {{with $workerSubnetLogicalName := printf "Worker%s" $workerSubnet.LogicalName}}
+          {{range $index, $subnet := .Worker.PrivateSubnets}}
           {{if gt $index 0}},{{end}}
-          {
-            "Ref": "{{$workerSubnetLogicalName}}"
-          }
-          {{end}}
+          {{$subnet.Ref "Worker"}}
           {{end}}
           {{else}}
           {{range $index, $subnet := .Subnets}}
           {{if gt $index 0}},{{end}}
-          {
-            "Ref": "{{$subnet.LogicalName}}"
-          }
+          {{$subnet.Ref}}
           {{end}}
           {{end}}
         ]
@@ -112,9 +201,9 @@
       "Properties": {
         "AvailabilityZones": [
           {{if $.Controller.TopologyPrivate}}
-          {{range $index, $controllerSubnet := .Controller.PrivateSubnets}}
+          {{range $index, $subnet := .Controller.PrivateSubnets}}
           {{if gt $index 0}},{{end}}
-          "{{$controllerSubnet.AvailabilityZone}}"
+          "{{$subnet.AvailabilityZone}}"
           {{end}}
           {{else}}
           {{range $index, $subnet := .Subnets}}
@@ -139,7 +228,7 @@
           {
             "Key": "KubernetesCluster",
             "PropagateAtLaunch": "true",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           },
           {
             "Key": "Name",
@@ -149,20 +238,14 @@
         ],
         "VPCZoneIdentifier": [
           {{if $.Controller.TopologyPrivate}}
-          {{range $index, $controllerSubnet := .Controller.PrivateSubnets}}
-          {{with $controllerSubnetLogicalName := printf "Controller%s" $controllerSubnet.LogicalName}}
+          {{range $index, $subnet := .Controller.PrivateSubnets}}
           {{if gt $index 0}},{{end}}
-          {
-            "Ref": "{{$controllerSubnetLogicalName}}"
-          }
-          {{end}}
+          {{$subnet.Ref "Controller"}}
           {{end}}
           {{else}}
           {{range $index, $subnet := .Subnets}}
           {{if gt $index 0}},{{end}}
-          {
-            "Ref": "{{$subnet.LogicalName}}"
-          }
+          {{$subnet.Ref}}
           {{end}}
           {{end}}
         ],
@@ -195,11 +278,7 @@
     "ExternalDNS": {
       "Type": "AWS::Route53::RecordSet",
       "Properties": {
-        {{if .HostedZoneID}}
-        "HostedZoneId": "{{.HostedZoneID}}",
-	    {{else}}
-        "HostedZoneName": "{{.HostedZone}}",
-	    {{end}}
+        "HostedZoneId": {{.HostedZone.Ref}},
         "Name": "{{.ExternalDNSName}}",
         "TTL": {{.RecordSetTTL}},
         "ResourceRecords": [{ "Fn::GetAtt": ["ElbAPIServer", "DNSName"]}],
@@ -494,19 +573,13 @@
               }
             ],
             "PrivateIpAddress": "{{$etcdInstance.IPAddress}}",
-            "SubnetId": {
-              {{if $.Etcd.TopologyPrivate}}
-              "Ref": "Etcd{{$etcdInstance.Subnet.LogicalName}}"
-              {{else}}
-              "Ref": "{{$etcdInstance.Subnet.LogicalName}}"
-              {{end}}
-            }
+            "SubnetId": {{$etcdInstance.SubnetRef}}
           }
         ],
         "Tags": [
           {
             "Key": "KubernetesCluster",
-            "Value": "{{$.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           },
           {
             "Key": "Name",
@@ -633,16 +706,14 @@
         },
         "Subnets" : [
           {{if .ControllerLoadBalancerPrivate}}
-          {{range $index, $controllerSubnet := .Controller.PrivateSubnets}}
-          {{with $controllerSubnetLogicalName := printf "Controller%s" $controllerSubnet.LogicalName}}
+          {{range $index, $subnet := .Controller.PrivateSubnets}}
           {{if gt $index 0}},{{end}}
-          {"Ref": "{{$controllerSubnetLogicalName}}"}
-          {{end}}
+          {{$subnet.Ref "Controller"}}
           {{end}}
           {{else}}
           {{range $index, $subnet := .Subnets}}
           {{if gt $index 0}},{{end}}
-          { "Ref" : "{{$subnet.LogicalName}}" }
+          {{$subnet.Ref}}
           {{end}}
           {{end}}
         ],
@@ -684,10 +755,10 @@
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::SecurityGroup"
     },
@@ -749,10 +820,10 @@
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::SecurityGroup"
     },
@@ -816,10 +887,10 @@
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::SecurityGroup"
     },
@@ -989,10 +1060,10 @@
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::SecurityGroup"
     },
@@ -1038,20 +1109,20 @@
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::SecurityGroup"
     }
     {{if .Worker.TopologyPrivate}}
     {{range $index, $subnet := .Worker.PrivateSubnets}}
     ,
-    "{{$subnet.LogicalName}}MountTarget": {
+    "{{$subnet.LogicalName "Worker"}}MountTarget": {
       "Properties" : {
         "FileSystemId": "{{$.ElasticFileSystemID}}",
-        "SubnetId": { "Ref": "{{$subnet.LogicalName}}" },
+        "SubnetId": {{$subnet.Ref "Worker"}},
         "SecurityGroups": [ { "Ref": "SecurityGroupMountTarget" } ]
       },
       "Type" : "AWS::EFS::MountTarget"
@@ -1063,7 +1134,7 @@
     "{{$subnet.LogicalName}}MountTarget": {
       "Properties" : {
         "FileSystemId": "{{$.ElasticFileSystemID}}",
-        "SubnetId": { "Ref": "{{$subnet.LogicalName}}" },
+        "SubnetId": {{$subnet.Ref}},
         "SecurityGroups": [ { "Ref": "SecurityGroupMountTarget" } ]
       },
       "Type" : "AWS::EFS::MountTarget"
@@ -1072,48 +1143,10 @@
     {{end}}
     {{end}}
 
-    {{range $index, $subnet := .Subnets}}
-    ,
-    "{{$subnet.LogicalName}}": {
-      "Properties": {
-        "AvailabilityZone": "{{$subnet.AvailabilityZone}}",
-        "CidrBlock": "{{$subnet.InstanceCIDR}}",
-        "MapPublicIpOnLaunch": {{$.MapPublicIPs}},
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": "{{$.ClusterName}}-{{$subnet.LogicalName}}"
-          },
-          {
-            "Key": "KubernetesCluster",
-            "Value": "{{$.ClusterName}}"
-          }
-        ],
-        "VpcId": {{$.VPCRef}}
-      },
-      "Type": "AWS::EC2::Subnet"
-    },
-    "{{$subnet.LogicalName}}RouteTableAssociation": {
-      "Properties": {
-        "RouteTableId":
-          {{if not $subnet.RouteTableID}}
-          {"Ref" : "PublicRouteTable"},
-          {{else}}
-          "{{$subnet.RouteTableID}}",
-          {{end}}
-        "SubnetId": {
-          "Ref": "{{$subnet.LogicalName}}"
-        }
-      },
-      "Type": "AWS::EC2::SubnetRouteTableAssociation"
-    }
-    {{end}}
-
-    {{if $.Etcd.TopologyPrivate}}
     {{range $index, $subnet := .Etcd.PrivateSubnets}}
-    {{with $etcdSubnetLogicalName := printf "Etcd%s" $subnet.LogicalName}}
+    {{if not $subnet.ID}}
     ,
-    "{{$etcdSubnetLogicalName}}": {
+    "{{$subnet.LogicalName "Etcd"}}": {
       "Properties": {
         "AvailabilityZone": "{{$subnet.AvailabilityZone}}",
         "CidrBlock": "{{$subnet.InstanceCIDR}}",
@@ -1121,41 +1154,31 @@
         "Tags": [
           {
             "Key": "Name",
-            "Value": "{{$.ClusterName}}-{{$etcdSubnetLogicalName}}"
+            "Value": "{{$.ClusterName}}-{{$subnet.LogicalName "Etcd"}}"
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{$.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{$.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::Subnet"
-    }
-    ,
-    "{{$etcdSubnetLogicalName}}RouteTableAssociation": {
+    },
+    "{{$subnet.LogicalName "Etcd"}}RouteTableAssociation": {
       "Properties": {
-        "RouteTableId":
-          {{if not $subnet.RouteTableID}}
-          {"Ref" : "PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}"},
-          {{else}}
-          "{{$subnet.RouteTableID}}",
-          {{end}}
-        "SubnetId": {
-          "Ref": "{{$etcdSubnetLogicalName}}"
-        }
+        "RouteTableId": {{$subnet.PrivateRouteTableRef $.Subnets}},
+        "SubnetId": {{$subnet.Ref "Etcd"}}
       },
       "Type": "AWS::EC2::SubnetRouteTableAssociation"
     }
     {{end}}
     {{end}}
-    {{end}}
 
-    {{if $.Controller.TopologyPrivate}}
     {{range $index, $subnet := .Controller.PrivateSubnets}}
-    {{with $controllerSubnetLogicalName := printf "Controller%s" $subnet.LogicalName}}
+    {{if not $subnet.ID}}
     ,
-    "{{$controllerSubnetLogicalName}}": {
+    "{{$subnet.LogicalName "Controller"}}": {
       "Properties": {
         "AvailabilityZone": "{{$subnet.AvailabilityZone}}",
         "CidrBlock": "{{$subnet.InstanceCIDR}}",
@@ -1163,41 +1186,31 @@
         "Tags": [
           {
             "Key": "Name",
-            "Value": "{{$.ClusterName}}-{{$controllerSubnetLogicalName}}"
+            "Value": "{{$.ClusterName}}-{{$subnet.LogicalName "Controller"}}"
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{$.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{$.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::Subnet"
-    }
-    ,
-    "{{$controllerSubnetLogicalName}}RouteTableAssociation": {
+    },
+    "{{$subnet.LogicalName "Controller"}}RouteTableAssociation": {
       "Properties": {
-        "RouteTableId":
-          {{if not $subnet.RouteTableID}}
-          {"Ref" : "PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}"},
-          {{else}}
-          "{{$subnet.RouteTableID}}",
-          {{end}}
-        "SubnetId": {
-          "Ref": "{{$controllerSubnetLogicalName}}"
-        }
+        "RouteTableId": {{$subnet.PrivateRouteTableRef $.Subnets}},
+        "SubnetId": {{$subnet.Ref "Controller"}}
       },
       "Type": "AWS::EC2::SubnetRouteTableAssociation"
     }
     {{end}}
     {{end}}
-    {{end}}
 
-    {{if $.Worker.TopologyPrivate}}
     {{range $index, $subnet := .Worker.PrivateSubnets}}
-    {{with $workerSubnetLogicalName := printf "Worker%s" $subnet.LogicalName}}
+    {{if not $subnet.ID}}
     ,
-    "{{$workerSubnetLogicalName}}": {
+    "{{$subnet.LogicalName "Worker"}}": {
       "Properties": {
         "AvailabilityZone": "{{$subnet.AvailabilityZone}}",
         "CidrBlock": "{{$subnet.InstanceCIDR}}",
@@ -1205,132 +1218,150 @@
         "Tags": [
           {
             "Key": "Name",
-            "Value": "{{$.ClusterName}}-{{$workerSubnetLogicalName}}"
+            "Value": "{{$.ClusterName}}-{{$subnet.LogicalName "Worker"}}"
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{$.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{$.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::Subnet"
-    }
-    ,
-    "{{$workerSubnetLogicalName}}RouteTableAssociation": {
+    },
+    "{{$subnet.LogicalName "Worker"}}RouteTableAssociation": {
       "Properties": {
-        "RouteTableId":
-          {{if not $subnet.RouteTableID}}
-          {"Ref" : "PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}"},
-          {{else}}
-          "{{$subnet.RouteTableID}}",
-          {{end}}
-        "SubnetId": {
-          "Ref": "{{$workerSubnetLogicalName}}"
-        }
+        "RouteTableId": {{$subnet.PrivateRouteTableRef $.Subnets}},
+        "SubnetId": {{$subnet.Ref "Worker"}}
       },
       "Type": "AWS::EC2::SubnetRouteTableAssociation"
     }
     {{end}}
     {{end}}
-    {{end}}
+
+    {{if not .RouteTable.HasIdentifier}}
     ,
-    "PublicRouteTable": {
+    "{{.RouteTable.LogicalName}}": {
       "Properties": {
         "Tags": [
           {
             "Key": "Name",
-            "Value": "{{$.ClusterName}}-PublicRouteTable"
+            "Value": "{{$.ClusterName}}-{{.RouteTable.LogicalName}}"
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{$.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{$.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::RouteTable"
     },
-    "PublicRouteToInternet": {
+    "{{.RouteTable.LogicalName}}ToInternetGateway": {
       "Properties": {
         "DestinationCidrBlock": "0.0.0.0/0",
-        "GatewayId": {{$.InternetGatewayRef}},
-        "RouteTableId": {"Ref" : "PublicRouteTable"}
+        "GatewayId": {{.InternetGateway.Ref}},
+        "RouteTableId": {{.RouteTable.Ref}}
       },
       "Type": "AWS::EC2::Route"
     }
+    {{end}}
+
+    {{range $index, $subnet := .Subnets}}
+    {{if not $subnet.HasIdentifier}}
+    ,
+    "{{$subnet.LogicalName}}": {
+      "Properties": {
+        "AvailabilityZone": "{{$subnet.AvailabilityZone}}",
+        "CidrBlock": "{{$subnet.InstanceCIDR}}",
+        "MapPublicIpOnLaunch": {{$subnet.MapPublicIp}},
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "{{$.ClusterName}}-{{$subnet.LogicalName}}"
+          },
+          {
+            "Key": "KubernetesCluster",
+            "Value": {"Ref": "ClusterName"}
+          }
+        ],
+        "VpcId": {{$.VPC.Ref}}
+      },
+      "Type": "AWS::EC2::Subnet"
+    },
+    "{{$subnet.LogicalName}}RouteTableAssociation": {
+      "Properties": {
+        "RouteTableId": {{$.RouteTable.Ref}},
+        "SubnetId": {{$subnet.Ref}}
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    }
+    {{end}}
+    {{end}}
 
     {{if (or .WorkerTopologyPrivate .Worker.TopologyPrivate .Etcd.TopologyPrivate .Controller.TopologyPrivate)}}
     {{range $index, $subnet := .Subnets}}
-    {{if not $subnet.NatGateway.EIPAllocationID}}
+    {{if not $subnet.NatGateway.HasIdentifier}}
+    {{if not $subnet.NatGateway.EIPAllocation.HasIdentifier}}
     ,
-    "NatGateway{{$subnet.AvailabilityZoneLogicalName}}EIP": {
+    "{{$subnet.NatGatewayEIPAllocationLogicalName}}": {
       "Properties": {
         "Domain": "vpc"
       },
       "Type": "AWS::EC2::EIP"
     }
     {{end}}
-    {{if not $subnet.NatGateway.ID}}
     ,
-    "NatGateway{{$subnet.AvailabilityZoneLogicalName}}": {
+    "{{$subnet.NatGatewayLogicalName}}": {
       "Properties": {
-        "AllocationId":
-          {{if not $subnet.NatGateway.EIPAllocationID}}
-          {"Fn::GetAtt": ["NatGateway{{$subnet.AvailabilityZoneLogicalName}}EIP", "AllocationId"]},
-          {{else}}
-          "{{$subnet.NatGateway.EIPAllocationID}}",
-          {{end}}
-        "SubnetId": { "Ref": "{{$subnet.LogicalName}}" }
+        "AllocationId": {{$subnet.NatGatewayEIPAllocationRef}},
+        "SubnetId": {{$subnet.Ref}}
       },
       "Type": "AWS::EC2::NatGateway"
     }
     {{end}}
+    {{if not $subnet.PrivateRouteTable.HasIdentifier}}
     ,
-    "PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}": {
+    "{{$subnet.PrivateRouteTableLogicalName}}": {
       "Properties": {
         "Tags": [
           {
             "Key": "Name",
-            "Value": "{{$.ClusterName}}-PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}"
+            "Value": "{{$.ClusterName}}-{{$subnet.PrivateRouteTableLogicalName}}"
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{$.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
-        "VpcId": {{$.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::RouteTable"
     },
-    "PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}RouteToNatGateway": {
+    "{{$subnet.PrivateRouteTableLogicalName}}RouteToNatGateway": {
       "Properties": {
         "DestinationCidrBlock": "0.0.0.0/0",
-        "NatGatewayId":
-          {{if not $subnet.NatGateway.ID}}
-          {"Ref": "NatGateway{{$subnet.AvailabilityZoneLogicalName}}"},
-          {{else}}
-          "{{$subnet.NatGateway.ID}}",
-          {{end}}
-        "RouteTableId": {"Ref" : "PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}"}
+        "NatGatewayId": {{$subnet.NatGatewayRef}},
+        "RouteTableId": {{$subnet.PrivateRouteTableRef}}
       },
       "Type": "AWS::EC2::Route"
     }
     {{end}}
     {{end}}
+    {{end}}
 
-    {{if not .InternetGatewayID}}
+    {{if not .InternetGateway.HasIdentifier}}
     ,
-    "{{.InternetGatewayLogicalName}}": {
+    "{{.InternetGateway.LogicalName}}": {
       "Properties": {
         "Tags": [
           {
             "Key": "Name",
-            "Value": "{{$.ClusterName}}-{{.InternetGatewayLogicalName}}"
+            "Value": "{{$.ClusterName}}-igw"
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ]
       },
@@ -1338,18 +1369,18 @@
     }
     {{end}}
 
-    {{if not .VPCID}}
+    {{if not .VPC.HasIdentifier}}
     ,
-    "{{.VPCLogicalName}}": {
+    "{{.VPC.LogicalName}}": {
       "Properties": {
-        "CidrBlock": "{{.VPCCIDR}}",
+        "CidrBlock": {"Ref": "VPCCIDR"},
         "EnableDnsHostnames": true,
         "EnableDnsSupport": true,
         "InstanceTenancy": "default",
         "Tags": [
           {
             "Key": "KubernetesCluster",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           },
           {
             "Key": "Name",
@@ -1361,8 +1392,8 @@
     },
     "VPCGatewayAttachment": {
       "Properties": {
-        "InternetGatewayId": {{.InternetGatewayRef}},
-        "VpcId": {{.VPCRef}}
+        "InternetGatewayId": {"Ref": "InternetGateway"},
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::VPCGatewayAttachment"
     }
@@ -1370,31 +1401,35 @@
   },
 
   "Outputs": {
-    {{if not .VPCID}}
-    "VPC" : {
-      "Description" : "The VPC managed by this stack",
-      "Value" :  { "Ref" : "{{.VPCLogicalName}}" },
-      "Export" : { "Name" : {"Fn::Sub": "${AWS::StackName}-VPC" }}
+    {{if not $.VPC.ImportID}}
+    "{{$.VPC.LogicalName}}" : {
+      "Description": "The VPC managed by this stack",
+      "Value": {{$.VPC.Ref}},
+      "Export": {"Name": {"Fn::Sub": "${AWS::StackName}-{{$.VPC.LogicalName}}"}}
     },
     {{end}}
-    "PublicRouteTable" : {
-      "Description" : "The public route table assigned to the internet gateway for worker nodes",
-      "Value" :  { "Ref" : "PublicRouteTable" },
-      "Export" : { "Name" : {"Fn::Sub": "${AWS::StackName}-PublicRouteTable" }}
+    {{if not $.RouteTable.ImportID}}
+    "{{$.RouteTable.LogicalName}}" : {
+      "Description": "The public route table assigned to the internet gateway for worker nodes",
+      "Value":  {{$.RouteTable.Ref}},
+      "Export": {"Name": {"Fn::Sub": "${AWS::StackName}-{{$.RouteTable.LogicalName}}"}}
     },
-    {{if .WorkerTopologyPrivate}}
-    {{range $index, $subnet := .Subnets}}
-    "PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}" : {
+    {{end}}
+    {{if (or $.WorkerTopologyPrivate $.Worker.TopologyPrivate)}}
+    {{range $index, $subnet := $.Subnets}}
+    {{if not $subnet.PrivateRouteTable.ImportID}}
+    "{{$subnet.PrivateRouteTableLogicalName}}" : {
       "Description" : "The private route table assigned to the nat gateway for worker nodes",
-      "Value" :  { "Ref" : "PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}" },
-      "Export" : { "Name" : {"Fn::Sub": "${AWS::StackName}-PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}" }}
+      "Value": {{$subnet.PrivateRouteTableRef}},
+      "Export": {"Name": {"Fn::Sub": "${AWS::StackName}-{{$subnet.PrivateRouteTableLogicalName}}"}}
     },
     {{end}}
     {{end}}
-    "WorkerSecurityGroup" : {
-      "Description" : "The security group assigned to worker nodes",
-      "Value" :  { "Ref" : "SecurityGroupWorker" },
-      "Export" : { "Name" : {"Fn::Sub": "${AWS::StackName}-WorkerSecurityGroup" }}
+    {{end}}
+    "WorkerSecurityGroup": {
+      "Description": "The security group assigned to worker nodes",
+      "Value":  {"Ref": "SecurityGroupWorker"},
+      "Export": {"Name": {"Fn::Sub": "${AWS::StackName}-WorkerSecurityGroup"}}
     }
   }
 }

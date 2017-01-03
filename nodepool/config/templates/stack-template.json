@@ -254,6 +254,27 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "kube-aws Kubernetes node pool {{.ClusterName}} {{.NodePoolName}}",
+  "Parameters": {
+    {{range $index, $subnet := .Subnets}}
+    {{if $subnet.ID}}
+    {{if $index}},{{end}}
+    "{{$subnet.LogicalName}}": {
+      "Type" : "String",
+      "Default" : "{{$subnet.ID}}"
+    }
+    {{end}}
+    {{end}}
+
+    {{range $index, $subnet := .Worker.PrivateSubnets}}
+    {{if $subnet.ID}}
+    {{if $index}},{{end}}
+    "{{$subnet.LogicalName}}": {
+      "Type" : "String",
+      "Default" : "{{$subnet.ID}}"
+    }
+    {{end}}
+    {{end}}
+  },
   "Resources": {
     {{if .Worker.SpotFleet.Enabled}}
     {{template "SpotFleet" .}}
@@ -404,6 +425,7 @@
 
     {{if $.Worker.TopologyPrivate}}
     {{range $index, $subnet := .Worker.PrivateSubnets}}
+    {{if not $subnet.ID}}
     ,
     "{{$subnet.LogicalName}}": {
       "Properties": {
@@ -439,8 +461,10 @@
       "Type": "AWS::EC2::SubnetRouteTableAssociation"
     }
     {{end}}
+    {{end}}
     {{else}}
     {{range $index, $subnet := .Subnets}}
+    {{if not $subnet.ID}}
     ,
     "{{$subnet.LogicalName}}": {
       "Properties": {
@@ -475,6 +499,7 @@
       },
       "Type": "AWS::EC2::SubnetRouteTableAssociation"
     }
+    {{end}}
     {{end}}
     {{end}}
   }
