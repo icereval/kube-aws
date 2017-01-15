@@ -1,16 +1,16 @@
 package model
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 )
 
 const (
-	publicSubnetLogicalName = "Subnet"
-	privateSubnetLogicalName = "PrivateRouteTable"
+	publicSubnetLogicalName      = "Subnet"
+	privateSubnetLogicalName     = "PrivateRouteTable"
 	privateRouteTableLogicalName = "PrivateRouteTable"
-	natGatewayLogicalName = "NatGateway"
-	eipAllocationLogicalName = "EIPAllocation"
+	natGatewayLogicalName        = "NatGateway"
+	eipAllocationLogicalName     = "EIPAllocation"
 )
 
 type Subnet struct {
@@ -98,10 +98,10 @@ func (c PrivateSubnet) PrivateRouteTableRef(publicSubnets []*PublicSubnet) strin
 }
 
 type NatGateway struct {
-	Identifier `yaml:",inline"`
+	Identifier    `yaml:",inline"`
 	EIPAllocation EIPAllocation `yaml:"eip,omitempty"`
 }
 
 type EIPAllocation struct {
-	Identifier    `yaml:",inline"`
+	Identifier `yaml:",inline"`
 }

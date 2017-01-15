@@ -150,7 +150,6 @@ func (c *ProvidedConfig) fillLegacySettings() error {
 	return nil
 }
 
-
 func ClusterFromFile(filename string) (*ProvidedConfig, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
