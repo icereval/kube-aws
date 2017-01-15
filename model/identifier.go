@@ -5,17 +5,17 @@ import (
 )
 
 type Identifier struct {
-	ID      string `yaml:"id,omitempty"`
-	StackID string `yaml:"stackId,omitempty"`
+	ID                string `yaml:"id,omitempty"`
+	IDFromStackOutput string `yaml:"idFromStackOutput,omitempty"`
 }
 
 func (c Identifier) HasIdentifier() bool {
-	return c.ID != "" || c.StackID != ""
+	return c.ID != "" || c.IDFromStackOutput != ""
 }
 
 func (c Identifier) Ref(logicalName string) string {
-	if c.StackID != "" {
-		return fmt.Sprintf(`{ "ImportValue" : %q }`, c.StackID)
+	if c.IDFromStackOutput != "" {
+		return fmt.Sprintf(`{ "ImportValue" : %q }`, c.IDFromStackOutput)
 	} else if c.ID != "" {
 		return fmt.Sprintf(`{ "Ref" : %q }`, c.ID)
 	} else {

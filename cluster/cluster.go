@@ -73,7 +73,7 @@ type ec2Service interface {
 }
 
 func (c *Cluster) validateExistingVPCState(ec2Svc ec2Service) error {
-	if c.VPC.ID == "" || c.VPC.StackID != "" {
+	if c.VPC.ID == "" || c.VPC.IDFromStackOutput != "" {
 		//The VPC will be created. No existing state to validate
 		return nil
 	}
@@ -332,7 +332,7 @@ type r53Service interface {
 }
 
 func (c *Cluster) validateDNSConfig(r53 r53Service) error {
-	if !c.CreateRecordSet || c.HostedZone.StackID != "" {
+	if !c.CreateRecordSet || c.HostedZone.IDFromStackOutput != "" {
 		return nil
 	}
 

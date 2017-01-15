@@ -37,7 +37,7 @@ func (c Subnet) NatGatewayEIPAllocationLogicalName() string {
 }
 
 func (c Subnet) NatGatewayEIPAllocationRef() string {
-	if c.NatGateway.EIPAllocation.StackID != "" || c.NatGateway.EIPAllocation.ID != "" {
+	if c.NatGateway.EIPAllocation.IDFromStackOutput != "" || c.NatGateway.EIPAllocation.ID != "" {
 		return c.NatGateway.EIPAllocation.Identifier.Ref("")
 	} else {
 		return fmt.Sprintf(`{ "Fn::GetAtt": [%q, "AllocationId"] }`, c.NatGatewayEIPAllocationLogicalName())

@@ -728,7 +728,7 @@ func (c Cluster) StackName() string {
 }
 
 func (c Cluster) valid() error {
-	if c.HostedZone.StackID == "" && c.CreateRecordSet {
+	if c.HostedZone.IDFromStackOutput == "" && c.CreateRecordSet {
 		if c.HostedZone.ID == "" {
 			return errors.New("hostedZone.ID must be specified createRecordSet is true")
 		}
