@@ -259,14 +259,6 @@ func (c ComputedConfig) StackName() string {
 	return c.NodePoolName
 }
 
-//func (c ComputedConfig) VPCRef() string {
-//	//This means this VPC already exists, and we can reference it directly by ID
-//	if c.VPCID != "" {
-//		return fmt.Sprintf("%q", c.VPCID)
-//	}
-//	return fmt.Sprintf(`{"Fn::ImportValue" : {"Fn::Sub" : "%s-VPC"}}`, c.ClusterName)
-//}
-
 func (c ComputedConfig) WorkerSecurityGroupRefs() []string {
 	refs := c.WorkerDeploymentSettings().WorkerSecurityGroupRefs()
 
