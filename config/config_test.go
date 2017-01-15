@@ -339,7 +339,7 @@ func TestMultipleSubnets(t *testing.T) {
 
 	validConfigs := []struct {
 		conf    string
-		subnets []*model.Subnet
+		subnets []*model.PublicSubnet
 	}{
 		{
 			conf: `
@@ -352,14 +352,19 @@ subnets:
   - availabilityZone: ap-northeast-1c
     instanceCIDR: 10.4.4.0/24
 `,
-			subnets: []*model.Subnet{
+
+			subnets: []*model.PublicSubnet{
 				{
-					InstanceCIDR:     "10.4.3.0/24",
-					AvailabilityZone: "ap-northeast-1a",
+					Subnet: model.Subnet{
+						AvailabilityZone: "ap-northeast-1a",
+						InstanceCIDR:     "10.4.3.0/24",
+					},
 				},
 				{
-					InstanceCIDR:     "10.4.4.0/24",
-					AvailabilityZone: "ap-northeast-1c",
+					Subnet: model.Subnet{
+						AvailabilityZone: "ap-northeast-1c",
+						InstanceCIDR:     "10.4.4.0/24",
+					},
 				},
 			},
 		},
@@ -371,12 +376,12 @@ controllerIP: 10.4.3.50
 availabilityZone: ap-northeast-1a
 instanceCIDR: 10.4.3.0/24
 `,
-			subnets: []*model.Subnet{
-				{
+			subnets: []*model.PublicSubnet{{
+				Subnet: model.Subnet{
 					AvailabilityZone: "ap-northeast-1a",
 					InstanceCIDR:     "10.4.3.0/24",
 				},
-			},
+			}},
 		},
 		{
 			conf: `
@@ -387,12 +392,12 @@ availabilityZone: ap-northeast-1a
 instanceCIDR: 10.4.3.0/24
 subnets: []
 `,
-			subnets: []*model.Subnet{
-				{
+			subnets: []*model.PublicSubnet{{
+				Subnet: model.Subnet{
 					AvailabilityZone: "ap-northeast-1a",
 					InstanceCIDR:     "10.4.3.0/24",
 				},
-			},
+			}},
 		},
 		{
 			conf: `
@@ -400,24 +405,24 @@ subnets: []
 availabilityZone: "ap-northeast-1a"
 subnets: []
 `,
-			subnets: []*model.Subnet{
-				{
+			subnets: []*model.PublicSubnet{{
+				Subnet: model.Subnet{
 					AvailabilityZone: "ap-northeast-1a",
 					InstanceCIDR:     "10.0.0.0/24",
 				},
-			},
+			}},
 		},
 		{
 			conf: `
 # Missing subnets field fall-backs to the single subnet with the default az/cidr.
 availabilityZone: "ap-northeast-1a"
 `,
-			subnets: []*model.Subnet{
-				{
+			subnets: []*model.PublicSubnet{{
+				Subnet: model.Subnet{
 					AvailabilityZone: "ap-northeast-1a",
 					InstanceCIDR:     "10.0.0.0/24",
 				},
-			},
+			}},
 		},
 	}
 

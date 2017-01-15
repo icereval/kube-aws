@@ -158,28 +158,12 @@ func ClusterFromBytes(data []byte) (*Cluster, error) {
 		return nil, err
 	}
 
-	//// If the user specified no subnets, we assume that a single AZ configuration with the default instanceCIDR is demanded
-	//if len(c.Subnets) == 0 && c.InstanceCIDR == "" {
-	//	c.InstanceCIDR = "10.0.0.0/24"
-	//}
-
-	//c.HostedZoneI= withHostedZoneIDPrefix(c.HostedZone)
+	// c.HostedZoneId = withHostedZoneIDPrefix(c.HostedZone)
 
 	if err := c.valid(); err != nil {
+		fmt.Println("DEBUG SUBNETS", c.Subnets)
 		return nil, fmt.Errorf("invalid cluster: %v", err)
 	}
-
-	//// For backward-compatibility
-	//if len(c.Subnets) == 0 {
-	//	c.Subnets = []*model.PublicSubnet{
-	//		{
-	//			Subnet: model.Subnet{
-	//				AvailabilityZone: c.AvailabilityZone,
-	//				InstanceCIDR:     c.InstanceCIDR,
-	//			},
-	//		},
-	//	}
-	//}
 
 	return c, nil
 }
@@ -213,18 +197,14 @@ type ComputedDeploymentSettings struct {
 type DeploymentSettings struct {
 	LegacyDeploymentSettings `yaml:",inline"`
 	ComputedDeploymentSettings
-	ClusterName string `yaml:"clusterName,omitempty"`
-	KeyName     string `yaml:"keyName,omitempty"`
-	Region      string `yaml:"region,omitempty"`
-	//AvailabilityZone  string `yaml:"availabilityZone,omitempty"`
-	ReleaseChannel  string                `yaml:"releaseChannel,omitempty"`
-	AmiId           string                `yaml:"iami,omitempty"`
-	VPC             model.VPC             `yaml:"vpc,omitempty"`
-	InternetGateway model.InternetGateway `yaml:"internetGateway,omitempty"`
-	RouteTable      model.RouteTable      `yaml:"routeTable,omitempty"`
-	// Required for validations like e.g. if instance cidr is contained in vpc cidr
-	//VPCCIDR             string                `yaml:"vpcCIDR,omitempty"`
-	//InstanceCIDR        string                `yaml:"instanceCIDR,omitempty"`
+	ClusterName         string                `yaml:"clusterName,omitempty"`
+	KeyName             string                `yaml:"keyName,omitempty"`
+	Region              string                `yaml:"region,omitempty"`
+	ReleaseChannel      string                `yaml:"releaseChannel,omitempty"`
+	AmiId               string                `yaml:"iami,omitempty"`
+	VPC                 model.VPC             `yaml:"vpc,omitempty"`
+	InternetGateway     model.InternetGateway `yaml:"internetGateway,omitempty"`
+	RouteTable          model.RouteTable      `yaml:"routeTable,omitempty"`
 	K8sVer              string                `yaml:"kubernetesVersion,omitempty"`
 	HyperkubeImageRepo  string                `yaml:"hyperkubeImageRepo,omitempty"`
 	AWSCliImageRepo     string                `yaml:"awsCliImageRepo,omitempty"`
@@ -321,6 +301,20 @@ func (c *Cluster) fillLegacySettings() error {
 	}
 	if c.RouteTableID != "" {
 		c.RouteTable.ID = c.RouteTableID
+	}
+
+	// If the user specified no subnets, we assume that a single AZ configuration with the default instanceCIDR is demanded
+	if len(c.Subnets) == 0 && c.InstanceCIDR == "" {
+		c.InstanceCIDR = "10.0.0.0/24"
+	}
+
+	if len(c.Subnets) > 0 {
+		if c.AvailabilityZone != "" {
+			return fmt.Errorf("The top-level availabilityZone(%s) must be empty when subnets are specified", c.AvailabilityZone)
+		}
+		if c.InstanceCIDR != "" {
+			return fmt.Errorf("The top-level instanceCIDR(%s) must be empty when subnets are specified", c.InstanceCIDR)
+		}
 	}
 
 	if len(c.Subnets) == 0 {
@@ -870,10 +864,6 @@ func (c DeploymentSettings) Valid() (*DeploymentValidationResult, error) {
 	if len(c.Subnets) == 0 {
 		return nil, fmt.Errorf("at least one subnet must be specified")
 	} else {
-		//if c.AvailabilityZone != "" {
-		//	return nil, fmt.Errorf("The top-level availabilityZone(%s) must be empty when subnets are specified", c.AvailabilityZone)
-		//}
-
 		var instanceCIDRs = make([]*net.IPNet, 0)
 		for i, subnet := range c.Subnets {
 			if subnet.AvailabilityZone == "" {
