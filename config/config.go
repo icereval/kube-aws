@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -20,7 +21,6 @@ import (
 	model "github.com/coreos/kube-aws/model"
 	"github.com/coreos/kube-aws/netutil"
 	yaml "gopkg.in/yaml.v2"
-	"strconv"
 )
 
 const (
@@ -78,7 +78,7 @@ func NewDefaultCluster() *Cluster {
 			Subnets:            []*model.PublicSubnet{},
 			//EIPAllocationIDs:   []string{},
 			//MapPublicIPs:       true,
-			Experimental:       experimental,
+			Experimental: experimental,
 		},
 		KubeClusterSettings: KubeClusterSettings{
 			DNSServiceIP: "10.3.0.10",
@@ -154,6 +154,10 @@ func ClusterFromBytes(data []byte) (*Cluster, error) {
 		return nil, fmt.Errorf("failed to parse cluster: %v", err)
 	}
 
+	if err := c.fillLegacySettings(); err != nil {
+		return nil, err
+	}
+
 	//// If the user specified no subnets, we assume that a single AZ configuration with the default instanceCIDR is demanded
 	//if len(c.Subnets) == 0 && c.InstanceCIDR == "" {
 	//	c.InstanceCIDR = "10.0.0.0/24"
@@ -207,16 +211,17 @@ type ComputedDeploymentSettings struct {
 //
 // Though it is highly configurable, it's basically users' responsibility to provide `correct` values if they're going beyond the defaults.
 type DeploymentSettings struct {
+	LegacyDeploymentSettings `yaml:",inline"`
 	ComputedDeploymentSettings
-	ClusterName       string `yaml:"clusterName,omitempty"`
-	KeyName           string `yaml:"keyName,omitempty"`
-	Region            string `yaml:"region,omitempty"`
+	ClusterName string `yaml:"clusterName,omitempty"`
+	KeyName     string `yaml:"keyName,omitempty"`
+	Region      string `yaml:"region,omitempty"`
 	//AvailabilityZone  string `yaml:"availabilityZone,omitempty"`
-	ReleaseChannel    string `yaml:"releaseChannel,omitempty"`
-	AmiId             string `yaml:"iami,omitempty"`
-	VPC               model.VPC             `yaml:"vpc,omitempty"`
-	InternetGateway   model.InternetGateway `yaml:"internetGateway,omitempty"`
-	RouteTable        model.RouteTable      `yaml:"routeTable,omitempty"`
+	ReleaseChannel  string                `yaml:"releaseChannel,omitempty"`
+	AmiId           string                `yaml:"iami,omitempty"`
+	VPC             model.VPC             `yaml:"vpc,omitempty"`
+	InternetGateway model.InternetGateway `yaml:"internetGateway,omitempty"`
+	RouteTable      model.RouteTable      `yaml:"routeTable,omitempty"`
 	// Required for validations like e.g. if instance cidr is contained in vpc cidr
 	//VPCCIDR             string                `yaml:"vpcCIDR,omitempty"`
 	//InstanceCIDR        string                `yaml:"instanceCIDR,omitempty"`
@@ -231,6 +236,14 @@ type DeploymentSettings struct {
 	ElasticFileSystemID string                `yaml:"elasticFileSystemId,omitempty"`
 	SSHAuthorizedKeys   []string              `yaml:"sshAuthorizedKeys,omitempty"`
 	Experimental        Experimental          `yaml:"experimental"`
+}
+
+type LegacyDeploymentSettings struct {
+	VPCID            string `yaml:"vpcId,omitempty"`
+	VPCCIDR          string `yaml:"vpcCIDR,omitempty"`
+	RouteTableID     string `yaml:"routeTableId,omitempty"`
+	AvailabilityZone string `yaml:"availabilityZone,omitempty"`
+	InstanceCIDR     string `yaml:"instanceCIDR,omitempty"`
 }
 
 // Part of configuration which is specific to worker nodes
@@ -288,13 +301,44 @@ type Cluster struct {
 	ControllerSettings     `yaml:",inline"`
 	EtcdSettings           `yaml:",inline"`
 	FlannelSettings        `yaml:",inline"`
-	ServiceCIDR            string `yaml:"serviceCIDR,omitempty"`
-	CreateRecordSet        bool   `yaml:"createRecordSet,omitempty"`
-	RecordSetTTL           int    `yaml:"recordSetTTL,omitempty"`
-	TLSCADurationDays      int    `yaml:"tlsCADurationDays,omitempty"`
-	TLSCertDurationDays    int    `yaml:"tlsCertDurationDays,omitempty"`
+	ServiceCIDR            string           `yaml:"serviceCIDR,omitempty"`
+	CreateRecordSet        bool             `yaml:"createRecordSet,omitempty"`
+	RecordSetTTL           int              `yaml:"recordSetTTL,omitempty"`
+	TLSCADurationDays      int              `yaml:"tlsCADurationDays,omitempty"`
+	TLSCertDurationDays    int              `yaml:"tlsCertDurationDays,omitempty"`
 	HostedZone             model.HostedZone `yaml:"hostedZone,omitempty"`
 	providedEncryptService EncryptService
+}
+
+// Backwards compatibility
+// TODO: Delete at 1.0
+func (c *Cluster) fillLegacySettings() error {
+	if c.VPCID != "" {
+		c.VPC.ID = c.VPCID
+	}
+	if c.VPCCIDR != "" {
+		c.VPC.CIDR = c.VPCCIDR
+	}
+	if c.RouteTableID != "" {
+		c.RouteTable.ID = c.RouteTableID
+	}
+
+	if len(c.Subnets) == 0 {
+		if c.AvailabilityZone == "" {
+			return errors.New("Must specify top-level availability zone if no subnets specified")
+		}
+		if c.InstanceCIDR == "" {
+			return errors.New("Must specify top-level instance CIDR if no subnets specified")
+		}
+		c.Subnets = append(c.Subnets, &model.PublicSubnet{
+			Subnet: model.Subnet{
+				AvailabilityZone: c.AvailabilityZone,
+				InstanceCIDR:     c.InstanceCIDR,
+			},
+		})
+	}
+
+	return nil
 }
 
 type Experimental struct {
