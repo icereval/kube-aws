@@ -442,7 +442,7 @@
             "Value": "{{$.ClusterName}}"
           }
         ],
-        "VpcId": {{$.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::Subnet"
     },
@@ -481,7 +481,7 @@
             "Value": "{{$.ClusterName}}"
           }
         ],
-        "VpcId": {{$.VPCRef}}
+        "VpcId": {{$.VPC.Ref}}
       },
       "Type": "AWS::EC2::Subnet"
     },
