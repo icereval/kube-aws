@@ -52,14 +52,14 @@ routeTableId: rtb-xxxxxx
 vpcId: vpc-xxxxx
 `, `
 createRecordSet: false
-hostedZone: ""
+hostedZoneId: "XXXXXXXXXXX"
 `, `
 createRecordSet: true
 recordSetTTL: 400
-hostedZone: core-os.net
+hostedZoneId: "XXXXXXXXXXX"
 `, `
 createRecordSet: true
-hostedZone: "staging.core-os.net"
+hostedZoneId: "XXXXXXXXXXX"
 `, `
 createRecordSet: true
 hostedZoneId: "XXXXXXXXXXX"
@@ -126,8 +126,9 @@ recordSetTTL: 400
 `, `
 createRecordSet: true
 recordSetTTL: 60
-hostedZone: staging.core-os.net
-hostedZoneId: /hostedzone/staging_id_2 #hostedZone and hostedZoneId defined
+hostedZone:
+  id: staging.core-os.net
+hostedZoneId: /hostedzone/staging_id_2 #hostedZoneId and hostedZone.id defined
 `,
 }
 

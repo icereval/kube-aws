@@ -158,10 +158,7 @@ func ClusterFromBytes(data []byte) (*Cluster, error) {
 		return nil, err
 	}
 
-	// c.HostedZoneId = withHostedZoneIDPrefix(c.HostedZone)
-
 	if err := c.valid(); err != nil {
-		fmt.Println("DEBUG SUBNETS", c.Subnets)
 		return nil, fmt.Errorf("invalid cluster: %v", err)
 	}
 
@@ -224,6 +221,7 @@ type LegacyDeploymentSettings struct {
 	RouteTableID     string `yaml:"routeTableId,omitempty"`
 	AvailabilityZone string `yaml:"availabilityZone,omitempty"`
 	InstanceCIDR     string `yaml:"instanceCIDR,omitempty"`
+	HostedZoneID     string `yaml:"hostedZoneId,omitempty"`
 }
 
 // Part of configuration which is specific to worker nodes
@@ -294,18 +292,23 @@ type Cluster struct {
 // TODO: Delete at 1.0
 func (c *Cluster) fillLegacySettings() error {
 	if c.VPCID != "" {
+		if c.VPC.ID != "" {
+			return errors.New("Cannot setup VPCID and VPC.ID")
+		}
 		c.VPC.ID = c.VPCID
 	}
 	if c.VPCCIDR != "" {
 		c.VPC.CIDR = c.VPCCIDR
 	}
 	if c.RouteTableID != "" {
+		if c.RouteTable.ID != "" {
+			return errors.New("Cannot setup RouteTableID and RouteTable.ID")
+		}
 		c.RouteTable.ID = c.RouteTableID
 	}
 
-	// If the user specified no subnets, we assume that a single AZ configuration with the default instanceCIDR is demanded
-	if len(c.Subnets) == 0 && c.InstanceCIDR == "" {
-		c.InstanceCIDR = "10.0.0.0/24"
+	if c.InstanceCIDR != "" && len(c.Subnets) > 0 && c.Subnets[0].InstanceCIDR != "" {
+		return errors.New("Cannot setup Subnets[0].InstanceCIDR and InstanceCIDR")
 	}
 
 	if len(c.Subnets) > 0 {
@@ -322,7 +325,7 @@ func (c *Cluster) fillLegacySettings() error {
 			return errors.New("Must specify top-level availability zone if no subnets specified")
 		}
 		if c.InstanceCIDR == "" {
-			return errors.New("Must specify top-level instance CIDR if no subnets specified")
+			c.InstanceCIDR = "10.0.0.0/24"
 		}
 		c.Subnets = append(c.Subnets, &model.PublicSubnet{
 			Subnet: model.Subnet{
@@ -330,6 +333,13 @@ func (c *Cluster) fillLegacySettings() error {
 				InstanceCIDR:     c.InstanceCIDR,
 			},
 		})
+	}
+
+	if c.HostedZoneID != "" {
+		if c.HostedZone.ID != "" {
+			return errors.New("Cannot setup HostedZoneID and HostedZone.ID")
+		}
+		c.HostedZone.ID = c.HostedZoneID
 	}
 
 	return nil
@@ -711,17 +721,10 @@ func (c Config) StackName() string {
 }
 
 func (c Cluster) valid() error {
-	if c.CreateRecordSet {
-		//if c.HostedZone == "" && c.HostedZoneID == "" {
-		//	return errors.New("hostedZone or hostedZoneID must be specified createRecordSet is true")
-		//}
-		//if c.HostedZone != "" && c.HostedZoneID != "" {
-		//	return errors.New("hostedZone and hostedZoneID cannot both be specified")
-		//}
-		//
-		//if c.HostedZone != "" {
-		//	fmt.Printf("Warning: the 'hostedZone' parameter is deprecated. Use 'hostedZoneId' instead\n")
-		//}
+	if c.HostedZone.StackID == "" && c.CreateRecordSet {
+		if c.HostedZone.ID == "" {
+			return errors.New("hostedZone.ID must be specified createRecordSet is true")
+		}
 
 		if c.RecordSetTTL < 1 {
 			return errors.New("TTL must be at least 1 second")
@@ -1128,15 +1131,3 @@ func WithTrailingDot(s string) string {
 	}
 	return s
 }
-
-//const hostedZoneIDPrefix = "/hostedzone/"
-//
-//func withHostedZoneIDPrefix(id string) string {
-//	if id == "" {
-//		return ""
-//	}
-//	if !strings.HasPrefix(id, hostedZoneIDPrefix) {
-//		return fmt.Sprintf("%s%s", hostedZoneIDPrefix, id)
-//	}
-//	return id
-//}
