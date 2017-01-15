@@ -878,104 +878,104 @@ releaseChannel: %s
 	}
 }
 
-// func TestValidateExistingVPC(t *testing.T) {
-// 	validCases := []struct {
-// 		vpc     string
-// 		subnets []string
-// 	}{
-// 		{"10.0.0.0/16", []string{"10.0.3.0/24", "10.0.4.0/24"}},
-// 	}
+func TestValidateExistingVPC(t *testing.T) {
+	validCases := []struct {
+		vpc     string
+		subnets []string
+	}{
+		{"10.0.0.0/16", []string{"10.0.3.0/24", "10.0.4.0/24"}},
+	}
 
-// 	invalidCases := []struct {
-// 		vpc     string
-// 		subnets []string
-// 	}{
-// 		// both subnets conflicts
-// 		{"10.0.0.0/16", []string{"10.0.1.0/24", "10.0.2.0/24"}},
-// 		// 10.0.1.0/24 conflicts
-// 		{"10.0.0.0/16", []string{"10.0.1.0/24", "10.0.3.0/24"}},
-// 		// 10.0.2.0/24 conflicts
-// 		{"10.0.0.0/16", []string{"10.0.2.0/24", "10.0.3.0/24"}},
-// 		// vpc cidr doesn't match
-// 		{"10.1.0.0/16", []string{"10.1.1.0/24", "10.1.2.0/24"}},
-// 		// vpc cidr is invalid
-// 		{"1o.1.o.o/16", []string{"10.1.1.0/24", "10.1.2.0/24"}},
-// 		// subnet cidr is invalid
-// 		{"10.1.0.0/16", []string{"1o.1.1.o/24", "10.1.2.0/24"}},
-// 	}
+	invalidCases := []struct {
+		vpc     string
+		subnets []string
+	}{
+		// both subnets conflicts
+		{"10.0.0.0/16", []string{"10.0.1.0/24", "10.0.2.0/24"}},
+		// 10.0.1.0/24 conflicts
+		{"10.0.0.0/16", []string{"10.0.1.0/24", "10.0.3.0/24"}},
+		// 10.0.2.0/24 conflicts
+		{"10.0.0.0/16", []string{"10.0.2.0/24", "10.0.3.0/24"}},
+		// vpc cidr doesn't match
+		{"10.1.0.0/16", []string{"10.1.1.0/24", "10.1.2.0/24"}},
+		// vpc cidr is invalid
+		{"1o.1.o.o/16", []string{"10.1.1.0/24", "10.1.2.0/24"}},
+		// subnet cidr is invalid
+		{"10.1.0.0/16", []string{"1o.1.1.o/24", "10.1.2.0/24"}},
+	}
 
-// 	cluster := NewDefaultCluster()
+	cluster := NewDefaultCluster()
 
-// 	cluster.VPCCIDR = "10.0.0.0/16"
-// 	cluster.Subnets = []*model.Subnet{
-// 		{"ap-northeast-1a", "10.0.1.0/24", "", model.NatGateway{}},
-// 		{"ap-northeast-1a", "10.0.2.0/24", "", model.NatGateway{}},
-// 	}
+	cluster.VPCCIDR = "10.0.0.0/16"
+	cluster.Subnets = []*model.PublicSubnet{
+		{Subnet: model.Subnet{AvailabilityZone: "ap-northeast-1a", InstanceCIDR: "10.0.1.0/24"}},
+		{Subnet: model.Subnet{AvailabilityZone: "ap-northeast-1a", InstanceCIDR: "10.0.2.0/24"}},
+	}
 
-// 	for _, testCase := range validCases {
-// 		err := cluster.ValidateExistingVPC(testCase.vpc, testCase.subnets)
+	for _, testCase := range validCases {
+		err := cluster.ValidateExistingVPC(testCase.vpc, testCase.subnets)
 
-// 		if err != nil {
-// 			t.Errorf("failed to validate existing vpc and subnets: %v", err)
-// 		}
-// 	}
+		if err != nil {
+			t.Errorf("failed to validate existing vpc and subnets: %v", err)
+		}
+	}
 
-// 	for _, testCase := range invalidCases {
-// 		err := cluster.ValidateExistingVPC(testCase.vpc, testCase.subnets)
+	for _, testCase := range invalidCases {
+		err := cluster.ValidateExistingVPC(testCase.vpc, testCase.subnets)
 
-// 		if err == nil {
-// 			t.Errorf("expected to fail validating existing vpc and subnets: %v", testCase)
-// 		}
-// 	}
-// }
+		if err == nil {
+			t.Errorf("expected to fail validating existing vpc and subnets: %v", testCase)
+		}
+	}
+}
 
-// func TestValidateUserData(t *testing.T) {
-// 	cluster := newDefaultClusterWithDeps(&dummyEncryptService{})
+func TestValidateUserData(t *testing.T) {
+	cluster := newDefaultClusterWithDeps(&dummyEncryptService{})
 
-// 	cluster.Region = "us-west-1"
-// 	cluster.Subnets = []*model.Subnet{
-// 		{"us-west-1a", "10.0.1.0/16", "", model.NatGateway{}},
-// 		{"us-west-1b", "10.0.2.0/16", "", model.NatGateway{}},
-// 	}
+	cluster.Region = "us-west-1"
+	cluster.Subnets = []*model.PublicSubnet{
+		{Subnet: model.Subnet{AvailabilityZone: "us-west-1a", InstanceCIDR: "10.0.1.0/16"}},
+		{Subnet: model.Subnet{AvailabilityZone: "us-west-1b", InstanceCIDR: "10.0.2.0/16"}},
+	}
 
-// 	helper.WithDummyCredentials(func(dir string) {
-// 		var stackTemplateOptions = StackTemplateOptions{
-// 			TLSAssetsDir:          dir,
-// 			ControllerTmplFile:    "templates/cloud-config-controller",
-// 			WorkerTmplFile:        "templates/cloud-config-worker",
-// 			EtcdTmplFile:          "templates/cloud-config-etcd",
-// 			StackTemplateTmplFile: "templates/stack-template.json",
-// 		}
+	helper.WithDummyCredentials(func(dir string) {
+		var stackTemplateOptions = StackTemplateOptions{
+			TLSAssetsDir:          dir,
+			ControllerTmplFile:    "templates/cloud-config-controller",
+			WorkerTmplFile:        "templates/cloud-config-worker",
+			EtcdTmplFile:          "templates/cloud-config-etcd",
+			StackTemplateTmplFile: "templates/stack-template.json",
+		}
 
-// 		if err := cluster.ValidateUserData(stackTemplateOptions); err != nil {
-// 			t.Errorf("failed to validate user data: %v", err)
-// 		}
-// 	})
-// }
+		if err := cluster.ValidateUserData(stackTemplateOptions); err != nil {
+			t.Errorf("failed to validate user data: %v", err)
+		}
+	})
+}
 
-// func TestRenderStackTemplate(t *testing.T) {
-// 	cluster := newDefaultClusterWithDeps(&dummyEncryptService{})
+func TestRenderStackTemplate(t *testing.T) {
+	cluster := newDefaultClusterWithDeps(&dummyEncryptService{})
 
-// 	cluster.Region = "us-west-1"
-// 	cluster.Subnets = []*model.Subnet{
-// 		{"us-west-1a", "10.0.1.0/16", "", model.NatGateway{}},
-// 		{"us-west-1b", "10.0.2.0/16", "", model.NatGateway{}},
-// 	}
+	cluster.Region = "us-west-1"
+	cluster.Subnets = []*model.PublicSubnet{
+		{Subnet: model.Subnet{AvailabilityZone: "us-west-1a", InstanceCIDR: "10.0.1.0/16"}},
+		{Subnet: model.Subnet{AvailabilityZone: "us-west-1b", InstanceCIDR: "10.0.2.0/16"}},
+	}
 
-// 	helper.WithDummyCredentials(func(dir string) {
-// 		var stackTemplateOptions = StackTemplateOptions{
-// 			TLSAssetsDir:          dir,
-// 			ControllerTmplFile:    "templates/cloud-config-controller",
-// 			WorkerTmplFile:        "templates/cloud-config-worker",
-// 			EtcdTmplFile:          "templates/cloud-config-etcd",
-// 			StackTemplateTmplFile: "templates/stack-template.json",
-// 		}
+	helper.WithDummyCredentials(func(dir string) {
+		var stackTemplateOptions = StackTemplateOptions{
+			TLSAssetsDir:          dir,
+			ControllerTmplFile:    "templates/cloud-config-controller",
+			WorkerTmplFile:        "templates/cloud-config-worker",
+			EtcdTmplFile:          "templates/cloud-config-etcd",
+			StackTemplateTmplFile: "templates/stack-template.json",
+		}
 
-// 		if _, err := cluster.RenderStackTemplate(stackTemplateOptions, false); err != nil {
-// 			t.Errorf("failed to render stack template: %v", err)
-// 		}
-// 	})
-// }
+		if _, err := cluster.RenderStackTemplate(stackTemplateOptions, false); err != nil {
+			t.Errorf("failed to render stack template: %v", err)
+		}
+	})
+}
 
 func TestWithTrailingDot(t *testing.T) {
 	tests := [][]string{
