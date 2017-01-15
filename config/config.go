@@ -76,7 +76,7 @@ func NewDefaultCluster() *Cluster {
 			AWSCliTag:          "master",
 			ContainerRuntime:   "docker",
 			Subnets:            []*model.PublicSubnet{},
-			Experimental: experimental,
+			Experimental:       experimental,
 		},
 		KubeClusterSettings: KubeClusterSettings{
 			DNSServiceIP: "10.3.0.10",
@@ -155,6 +155,8 @@ func ClusterFromBytes(data []byte) (*Cluster, error) {
 	if err := c.fillLegacySettings(); err != nil {
 		return nil, err
 	}
+
+	c.HostedZone.ID = withHostedZoneIDPrefix(c.HostedZone.ID)
 
 	if err := c.valid(); err != nil {
 		return nil, fmt.Errorf("invalid cluster: %v", err)
@@ -1130,4 +1132,16 @@ func WithTrailingDot(s string) string {
 		return s + "."
 	}
 	return s
+}
+
+const hostedZoneIDPrefix = "/hostedzone/"
+
+func withHostedZoneIDPrefix(id string) string {
+	if id == "" {
+		return ""
+	}
+	if !strings.HasPrefix(id, hostedZoneIDPrefix) {
+		return fmt.Sprintf("%s%s", hostedZoneIDPrefix, id)
+	}
+	return id
 }
