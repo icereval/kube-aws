@@ -16,7 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/route53"
 
-	"errors"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/coreos/kube-aws/cfnstack"
 	"github.com/coreos/kube-aws/config"
