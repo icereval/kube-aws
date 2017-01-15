@@ -76,8 +76,6 @@ func NewDefaultCluster() *Cluster {
 			AWSCliTag:          "master",
 			ContainerRuntime:   "docker",
 			Subnets:            []*model.PublicSubnet{},
-			//EIPAllocationIDs:   []string{},
-			//MapPublicIPs:       true,
 			Experimental: experimental,
 		},
 		KubeClusterSettings: KubeClusterSettings{
@@ -222,6 +220,7 @@ type LegacyDeploymentSettings struct {
 	AvailabilityZone string `yaml:"availabilityZone,omitempty"`
 	InstanceCIDR     string `yaml:"instanceCIDR,omitempty"`
 	HostedZoneID     string `yaml:"hostedZoneId,omitempty"`
+	MapPublicIPs     bool   `yaml:"mapPublicIPs,omitempty"`
 }
 
 // Part of configuration which is specific to worker nodes
@@ -332,6 +331,7 @@ func (c *Cluster) fillLegacySettings() error {
 				AvailabilityZone: c.AvailabilityZone,
 				InstanceCIDR:     c.InstanceCIDR,
 			},
+			MapPublicIp: c.MapPublicIPs,
 		})
 	}
 
