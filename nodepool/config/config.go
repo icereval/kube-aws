@@ -4,7 +4,10 @@ package config
 //go:generate gofmt -w templates.go
 
 import (
+	"errors"
 	"fmt"
+	"io/ioutil"
+
 	cfg "github.com/coreos/kube-aws/config"
 	"github.com/coreos/kube-aws/coreos/amiregistry"
 	"github.com/coreos/kube-aws/coreos/userdatavalidation"
@@ -12,8 +15,6 @@ import (
 	"github.com/coreos/kube-aws/filereader/userdatatemplate"
 	model "github.com/coreos/kube-aws/model"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"errors"
 )
 
 type Ref struct {
@@ -77,7 +78,7 @@ func (c ProvidedConfig) ValidateUserData(opts StackTemplateOptions) error {
 	}
 
 	err = userdatavalidation.Execute([]userdatavalidation.Entry{
-		{"UserDataWorker", stackConfig.UserDataWorker},
+		{Name: "UserDataWorker", Content: stackConfig.UserDataWorker},
 	})
 
 	return err

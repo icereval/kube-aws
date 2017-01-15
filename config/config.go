@@ -683,9 +683,9 @@ func (c Cluster) ValidateUserData(opts StackTemplateOptions) error {
 	}
 
 	err = userdatavalidation.Execute([]userdatavalidation.Entry{
-		{"UserDataWorker", stackConfig.UserDataWorker},
-		{"UserDataController", stackConfig.UserDataController},
-		{"UserDataEtcd", stackConfig.UserDataEtcd},
+		{Name: "UserDataWorker", Content: stackConfig.UserDataWorker},
+		{Name: "UserDataController", Content: stackConfig.UserDataController},
+		{Name: "UserDataEtcd", Content: stackConfig.UserDataEtcd},
 	})
 
 	return err
