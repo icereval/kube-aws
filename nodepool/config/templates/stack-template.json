@@ -130,12 +130,12 @@
           {
             "Key": "KubernetesCluster",
             "PropagateAtLaunch": "true",
-            "Value": "{{.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           },
           {
             "Key": "kube-aws:node-pool:name",
             "PropagateAtLaunch": "true",
-            "Value": "{{.NodePoolName}}"
+            "Value": {"Ref": "NodePoolName"}
           },
           {
             "Key": "Name",
@@ -155,16 +155,12 @@
           {{if .Worker.TopologyPrivate}}
           {{range $index, $subnet := .Worker.PrivateSubnets}}
           {{if gt $index 0}},{{end}}
-          {
-            "Ref": "{{$subnet.LogicalName}}"
-          }
+          {{$subnet.Ref}}
           {{end}}
           {{else}}
           {{range $index, $subnet := .Subnets}}
           {{if gt $index 0}},{{end}}
-          {
-            "Ref": "{{$subnet.LogicalName}}"
-          }
+          {{$subnet.Ref}}
           {{end}}
           {{end}}
         ]
@@ -255,9 +251,18 @@
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "kube-aws Kubernetes node pool {{.ClusterName}} {{.NodePoolName}}",
   "Parameters": {
+    "ClusterName": {
+      "Type" : "String",
+      "Default" : "{{.ClusterName}}"
+    },
+    "NodePoolName": {
+      "Type" : "String",
+      "Default" : "{{.NodePoolName}}"
+    }
+
     {{range $index, $subnet := .Subnets}}
     {{if $subnet.ID}}
-    {{if $index}},{{end}}
+    ,
     "{{$subnet.LogicalName}}": {
       "Type" : "String",
       "Default" : "{{$subnet.ID}}"
@@ -267,7 +272,7 @@
 
     {{range $index, $subnet := .Worker.PrivateSubnets}}
     {{if $subnet.ID}}
-    {{if $index}},{{end}}
+    ,
     "{{$subnet.LogicalName}}": {
       "Type" : "String",
       "Default" : "{{$subnet.ID}}"
@@ -402,7 +407,7 @@
     "{{$subnet.LogicalName}}MountTarget": {
       "Properties" : {
         "FileSystemId": "{{$.ElasticFileSystemID}}",
-        "SubnetId": { "Ref": "{{$subnet.LogicalName}}" },
+        "SubnetId": {{$subnet.Ref}},
         "SecurityGroups": [ { "Ref": "SecurityGroupMountTarget" } ]
       },
       "Type" : "AWS::EFS::MountTarget"
@@ -414,7 +419,7 @@
     "{{$subnet.LogicalName}}MountTarget": {
       "Properties" : {
         "FileSystemId": "{{$.ElasticFileSystemID}}",
-        "SubnetId": { "Ref": "{{$subnet.LogicalName}}" },
+        "SubnetId": {{$subnet.Ref}},
         "SecurityGroups": [ { "Ref": "SecurityGroupMountTarget" } ]
       },
       "Type" : "AWS::EFS::MountTarget"
@@ -439,7 +444,7 @@
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{$.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
         "VpcId": {{$.VPC.Ref}}
@@ -448,15 +453,8 @@
     },
     "{{$subnet.LogicalName}}RouteTableAssociation": {
       "Properties": {
-        "RouteTableId":
-          {{if not $subnet.RouteTableID}}
-          {"Fn::ImportValue" : {"Fn::Sub" : "{{$.ClusterName}}-PrivateRouteTable{{$subnet.AvailabilityZoneLogicalName}}"}},
-          {{else}}
-          "{{$subnet.RouteTableID}}",
-          {{end}}
-        "SubnetId": {
-          "Ref": "{{$subnet.LogicalName}}"
-        }
+        "RouteTableId": {{$subnet.RouteTable.Ref}},
+        "SubnetId": {{$subnet.Ref}}
       },
       "Type": "AWS::EC2::SubnetRouteTableAssociation"
     }
@@ -464,13 +462,13 @@
     {{end}}
     {{else}}
     {{range $index, $subnet := .Subnets}}
-    {{if not $subnet.ID}}
+    {{if not $subnet.HasIdentifier}}
     ,
     "{{$subnet.LogicalName}}": {
       "Properties": {
         "AvailabilityZone": "{{$subnet.AvailabilityZone}}",
         "CidrBlock": "{{$subnet.InstanceCIDR}}",
-        "MapPublicIpOnLaunch": {{$.MapPublicIPs}},
+        "MapPublicIpOnLaunch": {{$subnet.MapPublicIp}},
         "Tags": [
           {
             "Key": "Name",
@@ -478,7 +476,7 @@
           },
           {
             "Key": "KubernetesCluster",
-            "Value": "{{$.ClusterName}}"
+            "Value": {"Ref": "ClusterName"}
           }
         ],
         "VpcId": {{$.VPC.Ref}}
@@ -487,15 +485,8 @@
     },
     "{{$subnet.LogicalName}}RouteTableAssociation": {
       "Properties": {
-        "RouteTableId":
-          {{if not $.RouteTableID}}
-          {"Fn::ImportValue" : {"Fn::Sub" : "{{$.ClusterName}}-PublicRouteTable"}},
-          {{else}}
-          "{{$.RouteTableID}}",
-          {{end}}
-        "SubnetId": {
-          "Ref": "{{$subnet.LogicalName}}"
-        }
+        "RouteTableId": {{$.RouteTable.Ref}},
+        "SubnetId": {{$subnet.Ref}}
       },
       "Type": "AWS::EC2::SubnetRouteTableAssociation"
     }
